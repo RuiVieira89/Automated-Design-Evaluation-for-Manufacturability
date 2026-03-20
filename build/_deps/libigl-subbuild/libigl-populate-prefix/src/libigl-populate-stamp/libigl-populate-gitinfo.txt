@@ -3,13 +3,13 @@
 # No other meaning or use of this file is supported.
 
 method=git
-command=/opt/homebrew/bin/cmake;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/tmp/libigl-populate-gitclone.cmake
-source_dir=/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-src
-work_dir=/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps
+command=/usr/bin/cmake;-P;/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/tmp/libigl-populate-gitclone.cmake
+source_dir=/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-src
+work_dir=/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps
 repository=https://github.com/libigl/libigl.git
 remote=origin
 init_submodules=TRUE
 recurse_submodules=--recursive
 submodules=
 CMP0097=NEW
-      
+

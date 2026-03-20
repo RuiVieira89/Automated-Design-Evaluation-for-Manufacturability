@@ -2,37 +2,37 @@
 	"sources" : 
 	[
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/CMakeFiles/libigl-populate"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/CMakeFiles/libigl-populate"
 		},
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/CMakeFiles/libigl-populate.rule"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/CMakeFiles/libigl-populate.rule"
 		},
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/CMakeFiles/libigl-populate-complete.rule"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/CMakeFiles/libigl-populate-complete.rule"
 		},
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-build.rule"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-build.rule"
 		},
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-configure.rule"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-configure.rule"
 		},
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-download.rule"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-download.rule"
 		},
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-install.rule"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-install.rule"
 		},
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-mkdir.rule"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-mkdir.rule"
 		},
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-patch.rule"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-patch.rule"
 		},
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-test.rule"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-test.rule"
 		},
 		{
-			"file" : "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-update.rule"
+			"file" : "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/libigl-populate-update.rule"
 		}
 	],
 	"target" : 

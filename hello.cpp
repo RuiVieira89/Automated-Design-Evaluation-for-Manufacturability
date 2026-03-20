@@ -1,5 +1,8 @@
 
 #include <iostream>
+#include <filesystem>
+namespace fs = std::filesystem;
+
 #include <CGAL/Simple_cartesian.h>
 #include <igl/readOFF.h>
 #include <Eigen/Core>
@@ -15,16 +18,15 @@ int main() {
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
 
-    // Replace with a path to a .off file on your Mac
-    std::string mesh_path = "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/cube.off";
+    // Get current working directory
+    fs::path full_path = fs::current_path() / ".." / "cube.off";
+    std::string mesh_path = full_path.string();
     if (igl::readOFF(mesh_path, V, F)) {
         std::cout << "Vertices: " << V.rows() << std::endl;
         std::cout << "Faces:    " << F.rows() << std::endl;
     } else {
         std::cout << "Could not read mesh file." << std::endl;
     }
-
-
 
     return 0;
 }

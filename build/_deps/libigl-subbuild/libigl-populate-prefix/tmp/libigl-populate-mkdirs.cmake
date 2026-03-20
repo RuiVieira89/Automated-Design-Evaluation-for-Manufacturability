@@ -1,27 +1,22 @@
 # Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-# file LICENSE.rst or https://cmake.org/licensing for details.
+# file Copyright.txt or https://cmake.org/licensing for details.
 
-cmake_minimum_required(VERSION ${CMAKE_VERSION}) # this file comes with cmake
+cmake_minimum_required(VERSION 3.5)
 
-# If CMAKE_DISABLE_SOURCE_CHANGES is set to true and the source directory is an
-# existing directory in our source tree, calling file(MAKE_DIRECTORY) on it
-# would cause a fatal error, even though it would be a no-op.
-if(NOT EXISTS "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-src")
-  file(MAKE_DIRECTORY "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-src")
-endif()
 file(MAKE_DIRECTORY
-  "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-build"
-  "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix"
-  "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/tmp"
-  "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp"
-  "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src"
-  "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp"
+  "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-src"
+  "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-build"
+  "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix"
+  "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/tmp"
+  "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp"
+  "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src"
+  "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp"
 )
 
 set(configSubDirs )
 foreach(subDir IN LISTS configSubDirs)
-    file(MAKE_DIRECTORY "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/${subDir}")
+    file(MAKE_DIRECTORY "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp/${subDir}")
 endforeach()
 if(cfgdir)
-  file(MAKE_DIRECTORY "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp${cfgdir}") # cfgdir has leading slash
+  file(MAKE_DIRECTORY "/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-subbuild/libigl-populate-prefix/src/libigl-populate-stamp${cfgdir}") # cfgdir has leading slash
 endif()

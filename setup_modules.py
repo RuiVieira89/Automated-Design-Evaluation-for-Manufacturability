@@ -18,6 +18,7 @@ def install_modules():
         "pandas",
         "matplotlib",
         "fastapi",
+        "pythonocc-core"
     ]
 
     print(f"--- Configuring {env_name} for 3D Stack ---")
