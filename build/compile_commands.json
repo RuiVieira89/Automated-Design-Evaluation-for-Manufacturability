@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build",
+  "command": "/usr/bin/clang++ -DCGAL_USE_GMPXX=1 -I/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-src/include -isystem /opt/homebrew/include -isystem /Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/eigen-src -g -std=gnu++17 -arch arm64 -o CMakeFiles/eval_tool.dir/hello.cpp.o -c /Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/hello.cpp",
+  "file": "/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/hello.cpp",
+  "output": "CMakeFiles/eval_tool.dir/hello.cpp.o"
+}
+]

@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/eigen-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
