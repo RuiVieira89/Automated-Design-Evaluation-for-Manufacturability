@@ -1,6 +1,0 @@
-/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/CMakeFiles/eval_tool.dir
-/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/CMakeFiles/edit_cache.dir
-/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/CMakeFiles/rebuild_cache.dir
-/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-build/CMakeFiles/igl_core.dir
-/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-build/CMakeFiles/edit_cache.dir
-/home/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-build/CMakeFiles/rebuild_cache.dir

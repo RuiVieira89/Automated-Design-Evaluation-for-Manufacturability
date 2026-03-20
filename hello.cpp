@@ -1,7 +1,6 @@
 
 #include <iostream>
 #include <filesystem>
-namespace fs = std::filesystem;
 
 #include <CGAL/Simple_cartesian.h>
 #include <igl/readOFF.h>
@@ -19,7 +18,7 @@ int main() {
     Eigen::MatrixXi F;
 
     // Get current working directory
-    fs::path full_path = fs::current_path() / ".." / "cube.off";
+    std::filesystem::path full_path = std::filesystem::current_path() / ".." / "cube.off";
     std::string mesh_path = full_path.string();
     if (igl::readOFF(mesh_path, V, F)) {
         std::cout << "Vertices: " << V.rows() << std::endl;
