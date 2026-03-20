@@ -1,4 +1,4 @@
-
+// tests/test_env.cpp
 #include <iostream>
 #include <filesystem>
 
@@ -17,10 +17,11 @@ int main() {
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
 
-    // Get current working directory
-    std::filesystem::path full_path = std::filesystem::current_path() / ".." / "cube.off";
-    std::string mesh_path = full_path.string();
-    if (igl::readOFF(mesh_path, V, F)) {
+    // Better: resolve relative to project root
+    std::filesystem::path mesh_path = std::filesystem::path(__FILE__).parent_path()
+                                      / ".." / "data" / "cube.off";
+
+    if (igl::readOFF(mesh_path.string(), V, F)) {
         std::cout << "Vertices: " << V.rows() << std::endl;
         std::cout << "Faces:    " << F.rows() << std::endl;
     } else {
@@ -29,6 +30,3 @@ int main() {
 
     return 0;
 }
-
-
-

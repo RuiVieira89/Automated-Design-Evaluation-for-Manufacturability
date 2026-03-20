@@ -1,36 +1,35 @@
-cmake_minimum_required(VERSION 3.12) # bumped slightly for better FetchContent support
-project(ManufacturabilityEval)
+cmake_minimum_required(VERSION 3.16)
+project(geometry_project)
 
-# 1. Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 2. Find Eigen3 (Crucial for Ubuntu/macOS parity)
-# This finds the system-wide Eigen installed via 'apt' or 'brew'
+# Dependencies
+find_package(CGAL REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-# 3. Find CGAL
-find_package(CGAL REQUIRED)
+# If libigl is header-only
+add_subdirectory(external/libigl)
+# -------------------
+# Main executable
+# -------------------
+add_executable(main_app main.cpp)
 
-# 4. Fetch libigl
-# FetchContent is great for cross-platform because it downloads 
-# the source to the 'build' folder, keeping your OS-specific files separate.
-include(FetchContent)
-FetchContent_Declare(
-  libigl
-  GIT_REPOSITORY https://github.com/libigl/libigl.git
-  GIT_TAG v2.5.0
+target_link_libraries(main_app
+    CGAL::CGAL
+    Eigen3::Eigen
+    igl::core
 )
-FetchContent_MakeAvailable(libigl)
 
-# 5. Define the executable
-add_executable(eval_tool hello.cpp)
+# -------------------
+# Test executable
+# -------------------
+add_executable(test_pkg_install tests/test_pkg_install.cpp)
 
-# 6. Link libraries
-# We add Eigen3::Eigen explicitly to ensure headers are found on both OSs.
-target_link_libraries(eval_tool 
-    PUBLIC 
-        CGAL::CGAL 
-        Eigen3::Eigen
-        igl::core
+target_link_libraries(test_pkg_install
+    CGAL::CGAL
+    Eigen3::Eigen
+    igl::core
 )
+# Optional: enable `ctest`
+enable_testing()
+add_test(NAME EnvTest COMMAND test_env)
