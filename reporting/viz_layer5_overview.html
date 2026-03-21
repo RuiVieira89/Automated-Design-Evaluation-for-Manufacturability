@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layer 5 — Visualization &amp; Feedback</title>
+<style>
+  :root {
+    --color-bg: #f8f7f4;
+    --color-text-primary: #1a1a18;
+    --color-text-secondary: #5f5e5a;
+    --color-border: rgba(0,0,0,0.12);
+    --font-sans: system-ui, -apple-system, sans-serif;
+
+    --teal-50: #E1F5EE; --teal-600: #0F6E56; --teal-800: #085041;
+    --purple-50: #EEEDFE; --purple-100: #CECBF6; --purple-600: #534AB7; --purple-800: #3C3489;
+    --amber-50: #FAEEDA; --amber-100: #FAC775; --amber-600: #854F0B; --amber-800: #633806;
+    --coral-50: #FAECE7; --coral-100: #F5C4B3; --coral-600: #993C1D; --coral-800: #712B13;
+    --gray-50: #F1EFE8; --gray-100: #D3D1C7; --gray-600: #5F5E5A; --gray-800: #444441;
+    --t: rgba(0,0,0,0.3);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: #1c1c1a;
+      --color-text-primary: #e8e6de;
+      --color-text-secondary: #9c9a92;
+      --color-border: rgba(255,255,255,0.1);
+
+      --teal-50: #04342C; --teal-600: #5DCAA5; --teal-800: #9FE1CB;
+      --purple-50: #26215C; --purple-100: #3C3489; --purple-600: #AFA9EC; --purple-800: #CECBF6;
+      --amber-50: #412402; --amber-100: #633806; --amber-600: #EF9F27; --amber-800: #FAC775;
+      --coral-50: #4A1B0C; --coral-100: #712B13; --coral-600: #F0997B; --coral-800: #F5C4B3;
+      --gray-50: #2C2C2A; --gray-100: #444441; --gray-600: #B4B2A9; --gray-800: #D3D1C7;
+      --t: rgba(255,255,255,0.28);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--color-bg);
+    font-family: var(--font-sans);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 24px;
+  }
+  h1 {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    margin-bottom: 8px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 32px;
+  }
+  .card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 760px;
+  }
+  svg text { font-family: var(--font-sans); }
+  .t  { font-size: 14px; font-weight: 400; fill: var(--color-text-primary); }
+  .ts { font-size: 12px; font-weight: 400; fill: var(--color-text-secondary); }
+  .th { font-size: 14px; font-weight: 500; fill: var(--color-text-primary); }
+
+  .c-teal   rect { fill: var(--teal-50);   stroke: var(--teal-600);   }
+  .c-teal   .th  { fill: var(--teal-800);  } .c-teal   .ts { fill: var(--teal-600);  }
+  .c-purple rect { fill: var(--purple-50); stroke: var(--purple-600); }
+  .c-purple .th  { fill: var(--purple-800);} .c-purple .ts { fill: var(--purple-600);}
+  .c-amber  rect { fill: var(--amber-50);  stroke: var(--amber-600);  }
+  .c-amber  .th  { fill: var(--amber-800); } .c-amber  .ts { fill: var(--amber-600); }
+  .c-coral  rect { fill: var(--coral-50);  stroke: var(--coral-600);  }
+  .c-coral  .th  { fill: var(--coral-800); } .c-coral  .ts { fill: var(--coral-600); }
+  .c-gray   rect { fill: var(--gray-50);   stroke: var(--gray-100);   }
+  .c-gray   .th  { fill: var(--gray-800);  } .c-gray   .ts { fill: var(--gray-600);  }
+
+  .node { cursor: default; }
+  footer {
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    opacity: 0.6;
+  }
+</style>
+</head>
+<body>
+<h1>CAD Pipeline</h1>
+<h2>Layer 5 — Visualization &amp; Feedback</h2>
+<div class="card">
+<svg width="100%" viewBox="0 0 680 640" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- L4 input -->
+<g class="node c-amber">
+  <rect x="160" y="20" width="360" height="48" rx="8" stroke-width="0.5"/>
+  <text class="th" x="340" y="40" text-anchor="middle" dominant-baseline="central">Layer 4 ML output</text>
+  <text class="ts" x="340" y="58" text-anchor="middle" dominant-baseline="central">feature labels + process tags + confidence</text>
+</g>
+
+<!-- Annotation engine container -->
+<g class="c-teal">
+  <rect x="100" y="108" width="480" height="148" rx="14" stroke-width="0.5"/>
+  <text class="th" x="340" y="134" text-anchor="middle" dominant-baseline="central">Annotation engine</text>
+  <text class="ts" x="340" y="152" text-anchor="middle" dominant-baseline="central">PyVista / VTK — shared across all surfaces</text>
+</g>
+<g class="node c-gray">
+  <rect x="118" y="166" width="136" height="44" rx="6" stroke-width="0.5"/>
+  <text class="th" x="186" y="182" text-anchor="middle" dominant-baseline="central">Violation colouring</text>
+  <text class="ts" x="186" y="198" text-anchor="middle" dominant-baseline="central">face scalars by severity</text>
+</g>
+<g class="node c-gray">
+  <rect x="272" y="166" width="136" height="44" rx="6" stroke-width="0.5"/>
+  <text class="th" x="340" y="182" text-anchor="middle" dominant-baseline="central">Measurement overlays</text>
+  <text class="ts" x="340" y="198" text-anchor="middle" dominant-baseline="central">arrows, labels, dimensions</text>
+</g>
+<g class="node c-gray">
+  <rect x="426" y="166" width="136" height="44" rx="6" stroke-width="0.5"/>
+  <text class="th" x="494" y="182" text-anchor="middle" dominant-baseline="central">Scene export</text>
+  <text class="ts" x="494" y="198" text-anchor="middle" dominant-baseline="central">glTF, VTK, screenshot</text>
+</g>
+
+<!-- L4 → annotation -->
+<line x1="340" y1="68" x2="340" y2="106" stroke="var(--t)" stroke-width="1" opacity="0.4" marker-end="url(#arrow)" fill="none"/>
+
+<!-- Surface A: FreeCAD plugin -->
+<g class="c-purple">
+  <rect x="20" y="300" width="190" height="200" rx="14" stroke-width="0.5"/>
+  <text class="th" x="115" y="326" text-anchor="middle" dominant-baseline="central">FreeCAD plugin</text>
+  <text class="ts" x="115" y="344" text-anchor="middle" dominant-baseline="central">in-process, Python</text>
+</g>
+<g class="node c-gray">
+  <rect x="36" y="360" width="158" height="40" rx="6" stroke-width="0.5"/>
+  <text class="th" x="115" y="376" text-anchor="middle" dominant-baseline="central">Workbench API</text>
+  <text class="ts" x="115" y="392" text-anchor="middle" dominant-baseline="central">menu, toolbar, panel</text>
+</g>
+<g class="node c-gray">
+  <rect x="36" y="408" width="158" height="40" rx="6" stroke-width="0.5"/>
+  <text class="th" x="115" y="424" text-anchor="middle" dominant-baseline="central">3D view overlay</text>
+  <text class="ts" x="115" y="440" text-anchor="middle" dominant-baseline="central">Coin3D / Qt viewport</text>
+</g>
+<g class="node c-gray">
+  <rect x="36" y="456" width="158" height="36" rx="6" stroke-width="0.5"/>
+  <text class="th" x="115" y="470" text-anchor="middle" dominant-baseline="central">Results panel</text>
+  <text class="ts" x="115" y="484" text-anchor="middle" dominant-baseline="central">dockable Qt widget</text>
+</g>
+
+<!-- Surface B: Web UI -->
+<g class="c-purple">
+  <rect x="245" y="300" width="190" height="200" rx="14" stroke-width="0.5"/>
+  <text class="th" x="340" y="326" text-anchor="middle" dominant-baseline="central">Web UI</text>
+  <text class="ts" x="340" y="344" text-anchor="middle" dominant-baseline="central">Gradio or Streamlit</text>
+</g>
+<g class="node c-gray">
+  <rect x="261" y="360" width="158" height="40" rx="6" stroke-width="0.5"/>
+  <text class="th" x="340" y="376" text-anchor="middle" dominant-baseline="central">3D viewer component</text>
+  <text class="ts" x="340" y="392" text-anchor="middle" dominant-baseline="central">PyVista panel / iframe</text>
+</g>
+<g class="node c-gray">
+  <rect x="261" y="408" width="158" height="40" rx="6" stroke-width="0.5"/>
+  <text class="th" x="340" y="424" text-anchor="middle" dominant-baseline="central">Results table</text>
+  <text class="ts" x="340" y="440" text-anchor="middle" dominant-baseline="central">severity, check, location</text>
+</g>
+<g class="node c-gray">
+  <rect x="261" y="456" width="158" height="36" rx="6" stroke-width="0.5"/>
+  <text class="th" x="340" y="470" text-anchor="middle" dominant-baseline="central">File upload + run</text>
+  <text class="ts" x="340" y="484" text-anchor="middle" dominant-baseline="central">STEP / IGES trigger</text>
+</g>
+
+<!-- Surface C: Headless / API -->
+<g class="c-purple">
+  <rect x="470" y="300" width="190" height="200" rx="14" stroke-width="0.5"/>
+  <text class="th" x="565" y="326" text-anchor="middle" dominant-baseline="central">Headless / API</text>
+  <text class="ts" x="565" y="344" text-anchor="middle" dominant-baseline="central">batch, CI/CD, REST</text>
+</g>
+<g class="node c-gray">
+  <rect x="486" y="360" width="158" height="40" rx="6" stroke-width="0.5"/>
+  <text class="th" x="565" y="376" text-anchor="middle" dominant-baseline="central">JSON report</text>
+  <text class="ts" x="565" y="392" text-anchor="middle" dominant-baseline="central">structured check results</text>
+</g>
+<g class="node c-gray">
+  <rect x="486" y="408" width="158" height="40" rx="6" stroke-width="0.5"/>
+  <text class="th" x="565" y="424" text-anchor="middle" dominant-baseline="central">Annotated screenshots</text>
+  <text class="ts" x="565" y="440" text-anchor="middle" dominant-baseline="central">offscreen PyVista render</text>
+</g>
+<g class="node c-gray">
+  <rect x="486" y="456" width="158" height="36" rx="6" stroke-width="0.5"/>
+  <text class="th" x="565" y="470" text-anchor="middle" dominant-baseline="central">REST endpoint</text>
+  <text class="ts" x="565" y="484" text-anchor="middle" dominant-baseline="central">FastAPI / Flask wrapper</text>
+</g>
+
+<!-- Annotation → surfaces -->
+<path d="M200 256 L200 280 L115 280 L115 298" fill="none" stroke="var(--t)" stroke-width="1" opacity="0.4" marker-end="url(#arrow)"/>
+<line x1="340" y1="256" x2="340" y2="298" stroke="var(--t)" stroke-width="1" opacity="0.4" marker-end="url(#arrow)" fill="none"/>
+<path d="M480 256 L480 280 L565 280 L565 298" fill="none" stroke="var(--t)" stroke-width="1" opacity="0.4" marker-end="url(#arrow)"/>
+
+<!-- Feedback loop -->
+<g class="node c-coral">
+  <rect x="160" y="542" width="360" height="48" rx="8" stroke-width="0.5"/>
+  <text class="th" x="340" y="562" text-anchor="middle" dominant-baseline="central">Designer feedback loop</text>
+  <text class="ts" x="340" y="580" text-anchor="middle" dominant-baseline="central">override → retraining signal → L4 model store</text>
+</g>
+
+<!-- Surfaces → feedback -->
+<line x1="115" y1="500" x2="210" y2="540" stroke="var(--t)" stroke-width="1" opacity="0.35" marker-end="url(#arrow)" fill="none"/>
+<line x1="340" y1="500" x2="340" y2="540" stroke="var(--t)" stroke-width="1" opacity="0.35" marker-end="url(#arrow)" fill="none"/>
+<line x1="565" y1="500" x2="470" y2="540" stroke="var(--t)" stroke-width="1" opacity="0.35" marker-end="url(#arrow)" fill="none"/>
+
+<!-- Feedback → L4 back arrow -->
+<path d="M520 566 L650 566 L650 44 L522 44" fill="none" stroke="var(--t)" stroke-width="1" stroke-dasharray="4 3" opacity="0.3" marker-end="url(#arrow)"/>
+</svg>
+</div>
+<footer>Layer 5 — Visualization &amp; Feedback · CAD Pipeline</footer>
+</body>
+</html>
