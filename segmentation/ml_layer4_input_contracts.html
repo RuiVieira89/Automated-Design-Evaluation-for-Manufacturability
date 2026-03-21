@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layer 4 — ML Input Contracts</title>
+<style>
+  :root {
+    --color-bg: #f8f7f4;
+    --color-text-primary: #1a1a18;
+    --color-text-secondary: #5f5e5a;
+    --color-border: rgba(0,0,0,0.12);
+    --font-sans: system-ui, -apple-system, sans-serif;
+
+    --purple-50: #EEEDFE; --purple-600: #534AB7; --purple-800: #3C3489;
+    --coral-50:  #FAECE7; --coral-600:  #993C1D; --coral-800:  #712B13;
+    --gray-50:   #F1EFE8; --gray-100:   #D3D1C7; --gray-600:   #5F5E5A; --gray-800:   #444441;
+    --t: rgba(0,0,0,0.3);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: #1c1c1a;
+      --color-text-primary: #e8e6de;
+      --color-text-secondary: #9c9a92;
+      --color-border: rgba(255,255,255,0.1);
+
+      --purple-50: #26215C; --purple-600: #AFA9EC; --purple-800: #CECBF6;
+      --coral-50:  #4A1B0C; --coral-600:  #F0997B; --coral-800:  #F5C4B3;
+      --gray-50:   #2C2C2A; --gray-100:   #444441; --gray-600:   #B4B2A9; --gray-800:   #D3D1C7;
+      --t: rgba(255,255,255,0.28);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--color-bg);
+    font-family: var(--font-sans);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 24px;
+  }
+  h1 {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    margin-bottom: 8px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 32px;
+  }
+  .card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 760px;
+  }
+  svg text { font-family: var(--font-sans); }
+  .t  { font-size: 14px; font-weight: 400; fill: var(--color-text-primary); }
+  .ts { font-size: 12px; font-weight: 400; fill: var(--color-text-secondary); }
+  .th { font-size: 14px; font-weight: 500; fill: var(--color-text-primary); }
+
+  .c-purple rect { fill: var(--purple-50); stroke: var(--purple-600); }
+  .c-purple .th  { fill: var(--purple-800); } .c-purple .ts { fill: var(--purple-600); }
+  .c-coral  rect { fill: var(--coral-50);  stroke: var(--coral-600);  }
+  .c-coral  .th  { fill: var(--coral-800);  } .c-coral  .ts { fill: var(--coral-600);  }
+  .c-gray   rect { fill: var(--gray-50);   stroke: var(--gray-100);   }
+  .c-gray   .th  { fill: var(--gray-800);   } .c-gray   .ts { fill: var(--gray-600);   }
+
+  .node { cursor: default; }
+  footer {
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    opacity: 0.6;
+  }
+</style>
+</head>
+<body>
+<h1>CAD Pipeline · Layer 4 — ML / Context-Aware Reasoning</h1>
+<h2>ML input contracts</h2>
+<div class="card">
+<svg width="100%" viewBox="0 0 680 380" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- Column headers -->
+<g class="c-purple">
+  <rect x="30" y="20" width="290" height="44" rx="8" stroke-width="0.5"/>
+  <text class="th" x="175" y="38" text-anchor="middle" dominant-baseline="central">PyTorch Geometric</text>
+  <text class="ts" x="175" y="56" text-anchor="middle" dominant-baseline="central">graph input contract</text>
+</g>
+<g class="c-coral">
+  <rect x="360" y="20" width="290" height="44" rx="8" stroke-width="0.5"/>
+  <text class="th" x="505" y="38" text-anchor="middle" dominant-baseline="central">PointNet++</text>
+  <text class="ts" x="505" y="56" text-anchor="middle" dominant-baseline="central">point cloud input contract</text>
+</g>
+
+<!-- PyG rows -->
+<g class="node c-gray">
+  <rect x="30" y="84" width="290" height="56" rx="6" stroke-width="0.5"/>
+  <text class="th" x="175" y="104" text-anchor="middle" dominant-baseline="central">Node features (per face)</text>
+  <text class="ts" x="175" y="124" text-anchor="middle" dominant-baseline="central">area, curvature, draft angle, type</text>
+</g>
+<g class="node c-gray">
+  <rect x="30" y="152" width="290" height="56" rx="6" stroke-width="0.5"/>
+  <text class="th" x="175" y="172" text-anchor="middle" dominant-baseline="central">Edge features (per edge)</text>
+  <text class="ts" x="175" y="192" text-anchor="middle" dominant-baseline="central">convexity, tangency, length</text>
+</g>
+<g class="node c-gray">
+  <rect x="30" y="220" width="290" height="56" rx="6" stroke-width="0.5"/>
+  <text class="th" x="175" y="240" text-anchor="middle" dominant-baseline="central">Graph label (per part)</text>
+  <text class="ts" x="175" y="260" text-anchor="middle" dominant-baseline="central">process class + axis count</text>
+</g>
+<g class="node c-gray">
+  <rect x="30" y="288" width="290" height="56" rx="6" stroke-width="0.5"/>
+  <text class="th" x="175" y="308" text-anchor="middle" dominant-baseline="central">PyG Data object</text>
+  <text class="ts" x="175" y="328" text-anchor="middle" dominant-baseline="central">x, edge_index, edge_attr, y</text>
+</g>
+
+<!-- PointNet++ rows -->
+<g class="node c-gray">
+  <rect x="360" y="84" width="290" height="56" rx="6" stroke-width="0.5"/>
+  <text class="th" x="505" y="104" text-anchor="middle" dominant-baseline="central">Point set (N × 3)</text>
+  <text class="ts" x="505" y="124" text-anchor="middle" dominant-baseline="central">xyz + surface normals</text>
+</g>
+<g class="node c-gray">
+  <rect x="360" y="152" width="290" height="56" rx="6" stroke-width="0.5"/>
+  <text class="th" x="505" y="172" text-anchor="middle" dominant-baseline="central">Per-point features</text>
+  <text class="ts" x="505" y="192" text-anchor="middle" dominant-baseline="central">curvature, thickness, layer tag</text>
+</g>
+<g class="node c-gray">
+  <rect x="360" y="220" width="290" height="56" rx="6" stroke-width="0.5"/>
+  <text class="th" x="505" y="240" text-anchor="middle" dominant-baseline="central">FPS sampling</text>
+  <text class="ts" x="505" y="260" text-anchor="middle" dominant-baseline="central">farthest-point, 1024–4096 pts</text>
+</g>
+<g class="node c-gray">
+  <rect x="360" y="288" width="290" height="56" rx="6" stroke-width="0.5"/>
+  <text class="th" x="505" y="308" text-anchor="middle" dominant-baseline="central">Segmentation output</text>
+  <text class="ts" x="505" y="328" text-anchor="middle" dominant-baseline="central">per-point feature class label</text>
+</g>
+
+<!-- Column arrows -->
+<line x1="175" y1="140" x2="175" y2="150" stroke="var(--t)" stroke-width="1" opacity="0.3" marker-end="url(#arrow)" fill="none"/>
+<line x1="175" y1="208" x2="175" y2="218" stroke="var(--t)" stroke-width="1" opacity="0.3" marker-end="url(#arrow)" fill="none"/>
+<line x1="175" y1="276" x2="175" y2="286" stroke="var(--t)" stroke-width="1" opacity="0.3" marker-end="url(#arrow)" fill="none"/>
+<line x1="505" y1="140" x2="505" y2="150" stroke="var(--t)" stroke-width="1" opacity="0.3" marker-end="url(#arrow)" fill="none"/>
+<line x1="505" y1="208" x2="505" y2="218" stroke="var(--t)" stroke-width="1" opacity="0.3" marker-end="url(#arrow)" fill="none"/>
+<line x1="505" y1="276" x2="505" y2="286" stroke="var(--t)" stroke-width="1" opacity="0.3" marker-end="url(#arrow)" fill="none"/>
+
+<!-- Centre divider -->
+<line x1="340" y1="20" x2="340" y2="360" stroke="var(--t)" stroke-width="0.5" opacity="0.2" stroke-dasharray="3 3" fill="none"/>
+</svg>
+</div>
+<footer>Layer 4 — ML input contracts · CAD Pipeline</footer>
+</body>
+</html>

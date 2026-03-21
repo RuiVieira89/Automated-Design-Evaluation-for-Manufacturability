@@ -11,6 +11,7 @@ Here's a closer look at how the DfX rule module internals should be structured:
 see rule_engine_layer3_module_anatomy.svg
 
 The module anatomy diagram shows the key implementation pattern: a DfxCheck abstract base class with a uniform run(shape, params) → CheckResult signature. Every concrete check — wall thickness, draft angles, hole ratios — subclasses this and owns its own kernel calls (trimesh, OCCT, CGAL). The rule registry maps string names to classes so the dependency graph's topological sort can schedule checks by name without hard-wiring the execution order.
+
 ## Implementation
 
 The rule engine is structured as:

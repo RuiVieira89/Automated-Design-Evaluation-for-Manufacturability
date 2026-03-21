@@ -19,7 +19,13 @@ def install_modules():
         "matplotlib",
         "fastapi",
         "pythonocc-core",
-        "compas_libigl"  # Python bindings for libigl
+        "compas_libigl",  # Python bindings for libigl
+        # ML dependencies for Layer 4
+        "pytorch",
+        "torchvision",
+        "torchaudio",
+        "pytorch-geometric",
+        "onnxruntime",
     ]
 
     print(f"--- Configuring {env_name} for 3D Stack ---")
