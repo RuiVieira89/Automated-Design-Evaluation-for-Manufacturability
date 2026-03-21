@@ -7,12 +7,14 @@ pythonocc-core (Python bindings for OpenCASCADE) — reads STEP, IGES, and B-Rep
 ifcOpenShell — for BIM/IFC inputs common in industrial workflows
 meshio — universal mesh format converter (STL, OBJ, VTK, etc.)
 
-Layer 2 — Geometry Kernel
+Layer 2 — Geometry Kernel ✓ IMPLEMENTED
 
 OpenCASCADE Technology (OCCT) — the industry-grade B-Rep kernel; handles topology queries, face classification, edge analysis, curvature computation
 CGAL — best-in-class for computational geometry algorithms (convex hulls, Minkowski sums, mesh repair, exact arithmetic)
 trimesh / Open3D — lighter-weight mesh analysis with good Python APIs; useful for wall thickness, ray casting, and accessibility checks
 libigl — excellent for differential geometry on meshes (useful for sharp-feature detection)
+
+Implementation: geometry/ package with separate B-Rep and mesh tracks, tessellation engine for B-Rep→mesh conversion
 
 Layer 3 — Rule Engine
 
@@ -41,8 +43,8 @@ Celery + Redis — for async job queuing when evaluating complex geometries
 Recommended starting point: pythonocc-core + trimesh for geometry, a custom rule engine in Python, PyVista for visualization, and FastAPI to wire it together. That gives you a working prototype with the fewest integration hurdles.
 
 Project structure
-├── io/            # format parsers (STEP, STL, OBJ) — one adapter per format
-├── geometry/      # thickness computation, MAT, ray casting — pure functions
+├── io/            # format parsers (STEP, STL, OBJ) — one adapter per format ✓
+├── geometry/      # B-Rep & mesh geometry kernel with separate analysis tracks ✓
 ├── rules/         # pluggable rule modules (one class per DfX rule)
 ├── segmentation/  # feature detection (base, rib, fin)
 ├── reporting/     # heatmap generation, JSON/PDF export

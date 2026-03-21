@@ -18,7 +18,8 @@ def install_modules():
         "pandas",
         "matplotlib",
         "fastapi",
-        "pythonocc-core"
+        "pythonocc-core",
+        "compas_libigl"  # Python bindings for libigl
     ]
 
     print(f"--- Configuring {env_name} for 3D Stack ---")
@@ -27,7 +28,7 @@ def install_modules():
         # 1. Ensure the environment uses conda-forge strictly
         print("[1/3] Setting channel priorities...")
         subprocess.run(["conda", "config", "--env", "--add", "channels", "conda-forge"], check=True)
-        subprocess.run(["conda", "config", "--env", "--set", "channel_priority", "strict"], check=True)
+        subprocess.run(["conda", "config", "--env", "--set", "channel_pri`ority", "strict"], check=True)
 
         # 2. Install all packages in one block (helps conda solve dependencies faster)
         print(f"[2/3] Installing packages into {env_name}...")
