@@ -16,11 +16,13 @@ libigl — excellent for differential geometry on meshes (useful for sharp-featu
 
 Implementation: geometry/ package with separate B-Rep and mesh tracks, tessellation engine for B-Rep→mesh conversion
 
-Layer 3 — Rule Engine
+Layer 3 — Rule Engine ✓ IMPLEMENTED
 
 Python rule modules that call into OCC/CGAL for each DfX check (min wall thickness, draft angles, undercuts, hole depth/diameter ratios, tool access cones)
 networkx for modelling feature dependency graphs across an assembly
 scipy.optimize for tolerance-stack constraint solving
+
+Implementation: rules/ package with DfxCheck base class, concrete checks, rule registry, param store, dependency graph scheduler, and tolerance solver
 
 Layer 4 — ML / Context-Aware Reasoning
 
@@ -45,7 +47,7 @@ Recommended starting point: pythonocc-core + trimesh for geometry, a custom rule
 Project structure
 ├── io/            # format parsers (STEP, STL, OBJ) — one adapter per format ✓
 ├── geometry/      # B-Rep & mesh geometry kernel with separate analysis tracks ✓
-├── rules/         # pluggable rule modules (one class per DfX rule)
+├── rules/         # DfX rule engine with dependency scheduling & tolerance solving ✓
 ├── segmentation/  # feature detection (base, rib, fin)
 ├── reporting/     # heatmap generation, JSON/PDF export
 ├── config/        # process profiles (injection moulding, casting, machining)
