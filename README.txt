@@ -40,6 +40,16 @@ Celery + Redis — for async job queuing when evaluating complex geometries
 
 Recommended starting point: pythonocc-core + trimesh for geometry, a custom rule engine in Python, PyVista for visualization, and FastAPI to wire it together. That gives you a working prototype with the fewest integration hurdles.
 
+Project structure
+├── io/            # format parsers (STEP, STL, OBJ) — one adapter per format
+├── geometry/      # thickness computation, MAT, ray casting — pure functions
+├── rules/         # pluggable rule modules (one class per DfX rule)
+├── segmentation/  # feature detection (base, rib, fin)
+├── reporting/     # heatmap generation, JSON/PDF export
+├── config/        # process profiles (injection moulding, casting, machining)
+└── tests/         # unit + integration tests with reference geometries
+
+
 CPP installed CGAL, igl, Eigen
 
 Python packages installed
@@ -57,3 +67,18 @@ Python packages installed
         "fastapi",
 
 I'm usiong conda-forge
+
+
+conda activate auto_eval_manuf
+
+# Force the modern Intel Iris driver
+conda env config vars set MESA_LOADER_DRIVER_OVERRIDE=iris
+
+# Force X11 compatibility (XWayland) for the GUI
+conda env config vars set QT_QPA_PLATFORM=xcb
+
+# Use the system C++ library to prevent Segmentation Faults on Ubuntu 24.04
+conda env config vars set LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
+
+# Reactivate to apply these changes
+conda deactivate && conda activate auto_eval_manuf
