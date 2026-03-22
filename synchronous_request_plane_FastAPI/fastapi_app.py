@@ -20,7 +20,7 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
 import redis
 import celery
@@ -235,7 +235,7 @@ async def cancel_job(job_id: str):
         if not job_data_str:
             raise HTTPException(status_code=404, detail="Job not found")
 
-        job_data = eval(job_data_str.decode())
+        job_data = json.loads(job_data_str.decode())
 
         # Cancel Celery task if running
         if "celery_task_id" in job_data:
@@ -245,7 +245,7 @@ async def cancel_job(job_id: str):
         # Update job status
         job_data["status"] = "CANCELLED"
         job_data["completed_at"] = datetime.now(timezone.utc).isoformat()
-        redis_client.setex(f"job:{job_id}", 3600, str(job_data))
+        redis_client.setex(f"job:{job_id}", 3600, json.dumps(job_data))
 
         return {"message": "Job cancelled successfully"}
 
@@ -253,6 +253,35 @@ async def cancel_job(job_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to cancel job: {str(e)}")
+
+
+@app.get("/job/{job_id}/visualization", response_class=HTMLResponse)
+async def get_visualization(job_id: str):
+
+    if redis_client is None:
+        raise HTTPException(status_code=503, detail="Redis service unavailable")
+
+    job_data_str = redis_client.get(f"job:{job_id}")
+    if not job_data_str:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job_data = json.loads(job_data_str.decode())
+
+    if job_data.get("status") != "SUCCESS":
+        raise HTTPException(status_code=425, detail="Analysis not yet complete")
+
+    result = job_data.get("result", {})
+    html_path = result.get("html_visualization")
+
+    if not html_path or not os.path.exists(html_path):
+        raise HTTPException(status_code=404,
+                            detail="3D visualization not found for this job")
+
+    with open(html_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+
+    return HTMLResponse(content=html_content)
+
 
 if __name__ == "__main__":
     import uvicorn

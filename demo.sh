@@ -230,59 +230,26 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}3D Visualization${NC}"
 echo -e "${BLUE}========================================${NC}\n"
 
-# Start web UI for 3D visualization
-echo -e "${YELLOW}Starting web UI for 3D visualization...${NC}"
-echo -e "${GREEN}Open your browser to: http://localhost:8501${NC}"
-echo -e "${YELLOW}The web UI will show the 3D part with manufacturability annotations${NC}"
-echo -e ""
+VIZ_URL="http://localhost:${FASTAPI_PORT}/job/${JOB_ID}/visualization"
 
-cd "$PROJECT_ROOT/reporting"
+# Verify the visualization endpoint is available before opening
+echo -e "${YELLOW}Checking for 3D visualization...${NC}"
+VIZ_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$VIZ_URL")
 
-# Check if stpyvista is available for 3D visualization
-if python3 -c "import stpyvista" 2>/dev/null; then
-    echo -e "${GREEN}✓ stpyvista available - full 3D visualization enabled${NC}"
-    streamlit run web_ui.py > "$PROJECT_ROOT/streamlit.log" 2>&1 &
-    STREAMLIT_PID=$!
-    sleep 5
-
-    if kill -0 $STREAMLIT_PID 2> /dev/null; then
-        echo -e "${GREEN}✓ Web UI started (PID: $STREAMLIT_PID)${NC}"
-        echo -e "${GREEN}  Web UI available at: http://localhost:8501${NC}"
-        echo -e "${YELLOW}  Upload the STL file in the web UI to see 3D visualization${NC}"
-    else
-        echo -e "${YELLOW}Warning: Failed to start web UI${NC}"
-        echo -e "${YELLOW}You can start it manually with:${NC}"
-        echo -e "${YELLOW}  cd reporting${NC}"
-        echo -e "${YELLOW}  streamlit run web_ui.py${NC}"
-    fi
-else
-    echo -e "${YELLOW}⚠ stpyvista not available - 3D visualization disabled${NC}"
-    echo -e "${YELLOW}To enable 3D visualization, run:${NC}"
-    echo -e "${YELLOW}  conda activate auto_eval_manuf${NC}"
-    echo -e "${YELLOW}  pip install stpyvista${NC}"
-    echo -e "${YELLOW}Then restart the demo${NC}"
+if [ "$VIZ_STATUS" = "200" ]; then
+    echo -e "${GREEN}✓ Interactive 3D visualization ready${NC}"
+    echo -e "${GREEN}  URL: $VIZ_URL${NC}"
+    echo -e "${YELLOW}Opening browser — rotate the part by dragging, scroll to zoom.${NC}"
     echo -e ""
-    echo -e "${YELLOW}Showing basic 3D visualization with PyVista...${NC}"
-    python3 -c "
-import pyvista as pv
-import numpy as np
-
-# Load the STL file
-mesh = pv.read('$STL_FILE')
-print(f'Loaded mesh: {mesh.n_points} points, {mesh.n_cells} cells')
-print(f'Bounds: {mesh.bounds}')
-
-# Create a simple plot
-plotter = pv.Plotter(off_screen=True)
-plotter.add_mesh(mesh, color='lightblue', show_edges=True)
-plotter.view_isometric()
-plotter.screenshot('$PROJECT_ROOT/demo_visualization.png')
-print('✓ 3D visualization saved to: demo_visualization.png')
-"
-    if [ -f "$PROJECT_ROOT/demo_visualization.png" ]; then
-        echo -e "${GREEN}✓ 3D visualization saved to: $PROJECT_ROOT/demo_visualization.png${NC}"
-        echo -e "${YELLOW}Open the PNG file to see the 3D part${NC}"
-    fi
+    # Try platform-specific open commands in priority order
+    xdg-open "$VIZ_URL" 2>/dev/null \
+      || open "$VIZ_URL" 2>/dev/null \
+      || python3 -m webbrowser "$VIZ_URL" 2>/dev/null \
+      || echo -e "${YELLOW}Could not open browser automatically. Open manually: $VIZ_URL${NC}"
+else
+    echo -e "${YELLOW}⚠ Visualization endpoint returned HTTP $VIZ_STATUS${NC}"
+    echo -e "${YELLOW}  The HTML file may not have been generated (check celery.log).${NC}"
+    echo -e "${YELLOW}  You can retry manually: curl $VIZ_URL${NC}"
 fi
 
 echo -e ""
@@ -293,23 +260,14 @@ echo -e "${BLUE}========================================${NC}\n"
 echo -e "${BLUE}Services Running:${NC}"
 echo -e "  • Redis:   $REDIS_HOST:$REDIS_PORT"
 echo -e "  • FastAPI: http://localhost:$FASTAPI_PORT"
-if [ -n "$STREAMLIT_PID" ] && kill -0 $STREAMLIT_PID 2> /dev/null; then
-    echo -e "  • Web UI:  http://localhost:8501"
-fi
 echo -e "  • Celery:  Running in background"
 echo -e ""
 
 echo -e "${BLUE}Job Information:${NC}"
 echo -e "  • Job ID: $JOB_ID"
 echo -e "  • STL File: $(basename "$STL_FILE")"
-echo -e "  • Results: Available via API at /job/$JOB_ID"
-echo -e ""
-
-if [ -f "$PROJECT_ROOT/demo_visualization.png" ]; then
-    echo -e "${BLUE}Visualization:${NC}"
-    echo -e "  • 3D Screenshot: $PROJECT_ROOT/demo_visualization.png"
-fi
-
+echo -e "  • Results API:    http://localhost:$FASTAPI_PORT/job/$JOB_ID"
+echo -e "  • 3D Visualization: $VIZ_URL"
 echo -e ""
 echo -e "${BLUE}To stop all services, run:${NC}"
 echo -e "  bash stop_project.sh"

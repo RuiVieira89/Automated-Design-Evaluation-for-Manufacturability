@@ -69,7 +69,8 @@ class AnnotationEngine:
     def create_annotated_scene(self,
                               mesh: Any,
                               rule_results: List[CheckResult],
-                              ml_assessment: Optional[ManufacturabilityAssessment] = None) -> Any:
+                              ml_assessment: Optional[ManufacturabilityAssessment] = None,
+                              off_screen: bool = True) -> Any:
         """
         Create an annotated 3D scene from analysis results.
 
@@ -77,6 +78,7 @@ class AnnotationEngine:
             mesh: Input 3D mesh (PyVista PolyData)
             rule_results: Results from Layer 3 rule engine
             ml_assessment: Optional results from Layer 4 ML engine
+            off_screen: If True, render off-screen (for export); False for interactive
 
         Returns:
             PyVista plotter with annotated scene
@@ -85,50 +87,76 @@ class AnnotationEngine:
         if pv is None:
             raise ImportError("pyvista is required for create_annotated_scene")
 
-        plotter = pv.Plotter(off_screen=True)
-
-        # Add base mesh
-        plotter.add_mesh(mesh, opacity=self.config.opacity, show_edges=True)
+        plotter = pv.Plotter(off_screen=off_screen)
 
         # Apply violation coloring
         colored_mesh = self._apply_violation_coloring(mesh, rule_results)
         if colored_mesh is not None:
-            if pv is None:
-                raise ImportError("pyvista is required for violation coloring")
-            plotter.add_mesh(colored_mesh, scalars='severity', cmap=self.severity_cmap,
-                           opacity=self.config.opacity, show_edges=True)
+            plotter.add_mesh(colored_mesh, scalars='severity', cmap='RdYlGn_r',
+                           clim=[0.0, 1.0], opacity=self.config.opacity,
+                           show_edges=True, show_scalar_bar=True,
+                           scalar_bar_args={
+                               'title': 'Severity',
+                               'label_font_size': 12,
+                               'title_font_size': 14,
+                               'n_labels': 3,
+                               'fmt': '%.1f',
+                           })
+        else:
+            # No violations — render mesh in a neutral colour
+            plotter.add_mesh(mesh, color='lightblue', opacity=self.config.opacity,
+                           show_edges=True)
 
         # Add measurement overlays
         if self.config.show_measurements:
             self._add_measurement_overlays(plotter, rule_results)
 
+        # Build summary title
+        n_fail = sum(1 for r in rule_results if r.severity == Severity.FAIL)
+        n_warn = sum(1 for r in rule_results if r.severity == Severity.WARN)
+        status = "FAIL" if n_fail else ("WARN" if n_warn else "PASS")
+        title_text = f"Manufacturability Analysis — {status}  |  Fail: {n_fail}  Warn: {n_warn}"
+        title_color = 'red' if n_fail else ('orange' if n_warn else 'green')
+        plotter.add_text(title_text, position='upper_edge', font_size=11,
+                        color=title_color, font='arial')
+
         # Add process recommendations overlay
         if ml_assessment and self.config.show_labels:
             self._add_process_overlay(plotter, ml_assessment)
+
+        plotter.view_isometric()
+        plotter.reset_camera()
 
         return plotter
 
     def _apply_violation_coloring(self, mesh: Any,
                                  rule_results: List[CheckResult]) -> Optional[Any]:
         """
-        Apply face coloring based on violation severity.
+        Apply per-face coloring based on violation severity.
 
-        Returns colored mesh or None if no violations found.
+        Returns colored mesh, or None if nothing to show.
         """
-        if not rule_results or pv is None:
+        if pv is None:
             return None
 
-        # Check if there are any violations
-        violations = [r for r in rule_results if r.severity in [Severity.WARN, Severity.FAIL]]
-        if not violations:
-            return None
-
-        # For now, apply uniform coloring to indicate violations exist
-        # TODO: Add face-specific coloring when CheckResult includes face_indices
-        severity_scalars = np.ones(mesh.n_faces_strict) * 0.5  # Medium severity for all faces
-
-        # Create colored mesh
         colored_mesh = mesh.copy()
+        # Default: all faces are PASS (0.0 on a 0–1 scale)
+        severity_scalars = np.zeros(mesh.n_faces_strict)
+
+        # Mark faces declared by each check result
+        for result in rule_results:
+            face_indices = getattr(result, 'face_indices', [])
+            scalar_value = self._severity_to_scalar(result.severity)
+            if face_indices:
+                for idx in face_indices:
+                    if 0 <= idx < len(severity_scalars):
+                        # Take the maximum (worst) severity on a face
+                        severity_scalars[idx] = max(severity_scalars[idx], scalar_value)
+            else:
+                # Check has no specific face list — colour uniformly if not PASS
+                if result.severity != Severity.PASS:
+                    severity_scalars[:] = np.maximum(severity_scalars, scalar_value)
+
         colored_mesh['severity'] = severity_scalars
         return colored_mesh
 
@@ -206,6 +234,9 @@ class AnnotationEngine:
                 logger.warning("No meshes to export to VTK")
                 full_path = f"{output_path}.png"  # Fallback to screenshot
                 plotter.screenshot(full_path)
+        elif format == 'html':
+            full_path = f"{output_path}.html"
+            plotter.export_html(full_path)
         elif format == 'gltf':
             full_path = f"{output_path}.gltf"
             # Note: PyVista doesn't directly support glTF export

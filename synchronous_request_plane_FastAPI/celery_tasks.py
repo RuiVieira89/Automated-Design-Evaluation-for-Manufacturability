@@ -193,11 +193,14 @@ def analyse_part(self, job_id: str, file_path: str, process_type: str = "single"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         visualizations = []
-        for fmt in ['png', 'vtk']:
+        html_path = None
+        for fmt in ['html', 'png', 'vtk']:
             try:
                 output_path = output_dir / f"result.{fmt}"
-                annotation_engine.export_scene(plotter, str(output_path), fmt)
-                visualizations.append(str(output_path))
+                exported = annotation_engine.export_scene(plotter, str(output_dir / "result"), fmt)
+                visualizations.append(exported)
+                if fmt == 'html':
+                    html_path = exported
             except Exception as e:
                 logger.warning(f"Failed to export {fmt}: {e}")
 
@@ -211,6 +214,7 @@ def analyse_part(self, job_id: str, file_path: str, process_type: str = "single"
             "rule_results": [serialize_check_result(result) for result in rule_results.check_results],
             "ml_assessment": serialize_ml_assessment(ml_assessment),
             "visualizations": visualizations,
+            "html_visualization": html_path,
             "status": "completed",
             "timestamp": str(celery_app.now())
         }
