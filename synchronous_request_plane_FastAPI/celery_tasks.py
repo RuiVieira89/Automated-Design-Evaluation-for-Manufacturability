@@ -22,6 +22,8 @@ import sys
 import os
 import importlib.util
 
+import numpy as np
+
 # Import geometry loader
 parent_dir = os.path.dirname(os.path.dirname(__file__))
 io_path = os.path.join(parent_dir, 'io', 'io.py')
@@ -35,6 +37,28 @@ from geometry.geometry_kernel import GeometryKernel, GeometryInputs
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def serialize_check_result(check_result: CheckResult) -> Dict[str, Any]:
+    """Serialize a CheckResult to a JSON-compatible dict."""
+    return {
+        'check_name': check_result.check_name,
+        'severity': check_result.severity.value,
+        'message': check_result.message,
+        'details': getattr(check_result, 'details', None),
+        'face_indices': getattr(check_result, 'face_indices', []),
+        'measurement_points': getattr(check_result, 'measurement_points', [])
+    }
+
+def serialize_ml_assessment(ml_assessment: ManufacturabilityAssessment) -> Dict[str, Any]:
+    """Serialize a ManufacturabilityAssessment to a JSON-compatible dict."""
+    recommendations = ml_assessment.get_recommendations()
+    return {
+        'recommendations': recommendations,
+        'ml_predictions': ml_assessment.ml_predictions,
+        'process_capabilities': [
+            cap.to_dict() for cap in ml_assessment.process_capabilities
+        ]
+    }
 
 # Celery configuration
 celery_app = Celery(
@@ -147,7 +171,19 @@ def analyse_part(self, job_id: str, file_path: str, process_type: str = "single"
             tessellated = geometry.tessellate()
             pv_mesh = pv.PolyData(tessellated.points, tessellated.cells)
         else:
-            pv_mesh = pv.PolyData(geometry.points, geometry.cells)
+            # Convert mesh cells to PyVista format
+            # PyVista expects cells as [n_verts, v1, v2, ..., vn, n_verts, ...]
+            if geometry.cells.ndim == 2 and geometry.cells.shape[1] == 3:  # Triangles
+                # Flatten triangles into PyVista cell format
+                n_cells = geometry.cells.shape[0]
+                cells = np.zeros((n_cells, 4), dtype=np.int32)
+                cells[:, 0] = 3  # Number of vertices per cell
+                cells[:, 1:] = geometry.cells
+                cells = cells.flatten()
+                pv_mesh = pv.PolyData(geometry.points, cells)
+            else:
+                # For other cell types, try direct conversion
+                pv_mesh = pv.PolyData(geometry.points, geometry.cells)
 
         # Create annotated scene
         plotter = annotation_engine.create_annotated_scene(pv_mesh, rule_results.check_results, ml_assessment)
@@ -172,8 +208,8 @@ def analyse_part(self, job_id: str, file_path: str, process_type: str = "single"
             "job_id": job_id,
             "file_path": file_path,
             "process_type": process_type,
-            "rule_results": [result.__dict__ for result in rule_results.check_results],
-            "ml_assessment": ml_assessment,
+            "rule_results": [serialize_check_result(result) for result in rule_results.check_results],
+            "ml_assessment": serialize_ml_assessment(ml_assessment),
             "visualizations": visualizations,
             "status": "completed",
             "timestamp": str(celery_app.now())

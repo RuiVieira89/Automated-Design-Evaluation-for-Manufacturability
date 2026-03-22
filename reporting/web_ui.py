@@ -15,6 +15,7 @@ import pyvista as pv
 from stpyvista import stpyvista
 
 from rules.rule_engine import RuleEngine, AnalysisReport
+from rules.base import Severity
 from segmentation.inference.ml_inference_engine import MLInferenceEngine
 from reporting.annotation_engine import AnnotationEngine, AnnotationConfig, ColorScheme
 
@@ -30,6 +31,35 @@ class WebUI:
         self.annotation_engine = AnnotationEngine()
         self.rule_engine = RuleEngine()
         self.ml_engine = MLInferenceEngine()
+
+    def _serialize_rule_results(self, rule_results: AnalysisReport) -> Dict[str, Any]:
+        """Convert rule results to serializable dict."""
+        return {
+            'overall_status': rule_results.overall_status.value,
+            'feasible': rule_results.feasible,
+            'check_results': [
+                {
+                    'check_name': r.check_name,
+                    'severity': r.severity.value,
+                    'message': r.message,
+                    'details': getattr(r, 'details', None),
+                    'face_indices': getattr(r, 'face_indices', []),
+                    'measurement_points': getattr(r, 'measurement_points', [])
+                }
+                for r in rule_results.check_results
+            ]
+        }
+
+    def _serialize_ml_assessment(self, ml_assessment) -> Dict[str, Any]:
+        """Convert ML assessment to serializable dict."""
+        recommendations = ml_assessment.get_recommendations()
+        return {
+            'recommendations': recommendations,
+            'ml_predictions': ml_assessment.ml_predictions,
+            'process_capabilities': [
+                cap.to_dict() for cap in ml_assessment.process_capabilities
+            ]
+        }
 
     def run(self):
         """Main Streamlit application."""
@@ -106,21 +136,27 @@ class WebUI:
         mesh = self._load_geometry(file_path)
 
         # Run rule analysis
-        if mode in ["Full Analysis (Rules + ML)", "Rules Only"]:
+        rule_results = None
+        if mode in ["Full Analysis (Rules + ML)", "Rules Only", "ML Only"]:
             rule_results = self.rule_engine.analyze(mesh)  # Would need geometry input
-            results['rule_results'] = rule_results
+            if mode in ["Full Analysis (Rules + ML)", "Rules Only"]:
+                results['rule_results'] = self._serialize_rule_results(rule_results)
 
         # Run ML analysis
         if mode in ["Full Analysis (Rules + ML)", "ML Only"]:
-            ml_assessment = self.ml_engine.analyze(mesh)  # Would need proper input
-            results['ml_assessment'] = ml_assessment
+            ml_assessment = self.ml_engine.analyze(mesh, rule_results)  # Would need proper input
+            results['ml_assessment'] = self._serialize_ml_assessment(ml_assessment)
+
+        # Store raw objects for visualization
+        results['_raw_rule_results'] = rule_results
+        results['_raw_ml_assessment'] = ml_assessment if mode in ["Full Analysis (Rules + ML)", "ML Only"] else None
 
         # Create annotated visualization
-        if results['rule_results'] or results['ml_assessment']:
+        if results.get('_raw_rule_results') or results.get('_raw_ml_assessment'):
             plotter = self.annotation_engine.create_annotated_scene(
                 mesh,
-                results['rule_results'].check_results if results['rule_results'] else [],
-                results['ml_assessment']
+                results['_raw_rule_results'].check_results if results.get('_raw_rule_results') else [],
+                results.get('_raw_ml_assessment')
             )
             results['annotated_scene'] = plotter
 
@@ -197,7 +233,7 @@ class WebUI:
 
         # Process Recommendations
         if results.get('ml_assessment'):
-            self._display_process_recommendations(results['ml_assessment'])
+            self._display_process_recommendations(results['_raw_ml_assessment'])
 
     def _display_detailed_results(self, results: Dict[str, Any]):
         """Display detailed rule violation results."""
@@ -276,20 +312,21 @@ class WebUI:
             'severity_breakdown': {}
         }
 
-        if results.get('rule_results'):
-            violations = [r for r in results['rule_results'].check_results
-                         if r.severity.value != 'OK']
+        if results.get('_raw_rule_results'):
+            rule_results = results['_raw_rule_results']
+            violations = [r for r in rule_results.check_results
+                         if r.severity != Severity.PASS]
 
             summary['total_violations'] = len(violations)
 
             # Determine overall severity
-            severity_levels = {'OK': 0, 'WARNING': 1, 'ERROR': 2, 'CRITICAL': 3}
-            max_severity = max([severity_levels.get(r.severity.value, 0) for r in violations], default=0)
-            severity_names = {0: 'OK', 1: 'WARNING', 2: 'ERROR', 3: 'CRITICAL'}
+            severity_levels = {Severity.PASS: 0, Severity.WARN: 1, Severity.FAIL: 2}
+            max_severity = max([severity_levels.get(r.severity, 0) for r in violations], default=0)
+            severity_names = {0: 'OK', 1: 'WARNING', 2: 'ERROR'}
             summary['overall_severity'] = severity_names[max_severity]
 
             # Feasibility check
-            summary['feasible'] = max_severity < 3  # Not critical
+            summary['feasible'] = rule_results.feasible
 
             # Severity breakdown
             for violation in violations:

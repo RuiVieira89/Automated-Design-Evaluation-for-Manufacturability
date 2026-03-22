@@ -59,7 +59,7 @@ class MLInferenceEngine:
             logger.warning("No ML models loaded - will use rule fallback only")
 
     def analyze_manufacturability(self, layer3_results: List[Any],
-                                geometry_features: Dict[str, Any] = None) -> Dict[str, Any]:
+                                geometry_features: Dict[str, Any] = None) -> ManufacturabilityAssessment:
         """
         Perform complete manufacturability analysis.
 
@@ -68,7 +68,7 @@ class MLInferenceEngine:
             geometry_features: Additional geometry features
 
         Returns:
-            Complete analysis with process recommendations
+            ManufacturabilityAssessment object
         """
         # Prepare ML inputs from Layer 3 results
         ml_inputs = prepare_ml_inputs(layer3_results)
@@ -89,14 +89,41 @@ class MLInferenceEngine:
             ml_outputs, process_capabilities, layer3_results, self.confidence_threshold
         )
 
-        # Get final recommendations
-        recommendations = assessment.get_recommendations()
+        return assessment
 
-        # Add confidence information
-        recommendations['confidence_assessment'] = confidence_assessment
-        recommendations['ml_outputs'] = ml_outputs
+    def analyze(self, mesh: Any, rule_results: Any = None) -> ManufacturabilityAssessment:
+        """
+        Analyze manufacturability of a mesh.
 
-        return recommendations
+        Args:
+            mesh: PyVista mesh or similar geometry
+            rule_results: Results from rule engine analysis
+
+        Returns:
+            ManufacturabilityAssessment object
+        """
+        if rule_results is None:
+            # If no rule results provided, we can't run ML analysis
+            # This shouldn't happen in normal usage
+            raise ValueError("Rule results are required for ML analysis")
+
+        # Extract check_results from AnalysisReport
+        if hasattr(rule_results, 'check_results'):
+            layer3_results = rule_results.check_results
+        else:
+            layer3_results = rule_results
+
+        # Extract geometry features from mesh
+        geometry_features = self._extract_geometry_features(mesh)
+
+        # Run manufacturability analysis
+        return self.analyze_manufacturability(layer3_results, geometry_features)
+
+    def _extract_geometry_features(self, mesh: Any) -> Dict[str, Any]:
+        """Extract geometry features from mesh for ML analysis."""
+        # This is a placeholder - in a real implementation, this would
+        # use geometry_kernel to extract features
+        return {}
 
     def _run_ml_inference(self, ml_inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Run inference on both ML models."""

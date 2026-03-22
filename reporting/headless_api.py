@@ -86,12 +86,14 @@ class APIAnalyzer:
             }
 
             # Run analyses based on mode
-            if request.analysis_mode in ['full', 'rules_only']:
+            rule_results = None
+            if request.analysis_mode in ['full', 'rules_only', 'ml_only']:
                 rule_results = self.rule_engine.analyze(mesh)
-                results['rule_results'] = self._serialize_rule_results(rule_results)
+                if request.analysis_mode in ['full', 'rules_only']:
+                    results['rule_results'] = self._serialize_rule_results(rule_results)
 
             if request.analysis_mode in ['full', 'ml_only']:
-                ml_assessment = self.ml_engine.analyze(mesh)
+                ml_assessment = self.ml_engine.analyze(mesh, rule_results)
                 results['ml_assessment'] = self._serialize_ml_assessment(ml_assessment)
 
             # Generate summary

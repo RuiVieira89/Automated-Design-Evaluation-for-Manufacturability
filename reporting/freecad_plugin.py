@@ -142,7 +142,7 @@ class FreeCADAnalyzer:
             FreeCAD.Console.PrintMessage(f"Rule analysis complete: {len(rule_results.check_results)} checks\n")
 
             # ML analysis
-            ml_assessment = self.ml_engine.analyze(mesh)
+            ml_assessment = self.ml_engine.analyze(mesh, rule_results)
             recommendations = ml_assessment.get_recommendations()
             FreeCAD.Console.PrintMessage(f"ML analysis complete: {recommendations.get('recommended_process', 'Unknown')}\n")
 

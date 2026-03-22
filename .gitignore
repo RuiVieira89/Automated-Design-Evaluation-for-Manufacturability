@@ -80,3 +80,5 @@ coverage.xml
 .fuse_hidden*
 .directory
 .Trash-*
+
+*.log

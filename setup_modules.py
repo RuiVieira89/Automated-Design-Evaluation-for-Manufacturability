@@ -6,20 +6,35 @@ def install_modules():
     
     # All libraries, now including open3d via conda
     packages = [
+        # Core geometry and I/O
         "trimesh",
-        "open3d",       # Installed via conda-forge
+        "open3d",                  # Installed via conda-forge
         "meshio",
         "ifcopenshell",
-        "lark",         # Fixes 'no stream support'
+        "lark",                    # Fixes 'no stream support'
         "scipy",
         "networkx",
         "numpy",
         "pyvista",
         "pandas",
         "matplotlib",
-        "fastapi",
         "pythonocc-core",
-        "compas_libigl",  # Python bindings for libigl
+        "compas_libigl",           # Python bindings for libigl
+        
+        # API and Orchestration Layer (Layer 6)
+        "fastapi",
+        "uvicorn",                 # ASGI server for FastAPI
+        "pydantic",                # Data validation for FastAPI
+        "celery",                  # Asynchronous task execution
+        "celery-progress",         # Task progress tracking
+        "redis-py",                # Redis client
+        "prefect",                 # Workflow orchestration
+        "streamlit",               # Web UI framework
+        "stpyvista",               # PyVista integration for Streamlit
+        
+        # Testing
+        "pytest",
+        
         # ML dependencies for Layer 4
         "pytorch",
         "torchvision",
@@ -34,17 +49,33 @@ def install_modules():
         # 1. Ensure the environment uses conda-forge strictly
         print("[1/3] Setting channel priorities...")
         subprocess.run(["conda", "config", "--env", "--add", "channels", "conda-forge"], check=True)
-        subprocess.run(["conda", "config", "--env", "--set", "channel_pri`ority", "strict"], check=True)
+        subprocess.run(["conda", "config", "--env", "--set", "channel_priority", "strict"], check=True)
 
         # 2. Install all packages in one block (helps conda solve dependencies faster)
         print(f"[2/3] Installing packages into {env_name}...")
         subprocess.check_call([
             "conda", "install", "-y", "-n", env_name, *packages
         ])
+        
+        # 2b. Install pip-only packages that aren't available on conda-forge
+        print(f"[2b/3] Installing pip-only packages...")
+        subprocess.check_call([
+            "conda", "run", "-n", env_name, "pip", "install", 
+            "celery-progress"  # This package is not available on conda-forge
+        ])
 
         # 3. Final Verification
         print(f"[3/3] Verifying installation...")
-        verification_cmd = "import open3d; import ifcopenshell; print('Stack loaded successfully!')"
+        verification_cmd = """
+                        import open3d
+                        import ifcopenshell
+                        import fastapi
+                        import celery
+                        import redis
+                        import prefect
+                        import pytest
+                        print('✓ All core packages loaded successfully!')
+                        """
         subprocess.run(["conda", "run", "-n", env_name, "python", "-c", verification_cmd], check=True)
 
         print("\n" + "="*40)

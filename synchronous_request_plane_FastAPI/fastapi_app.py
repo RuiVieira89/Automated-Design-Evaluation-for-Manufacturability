@@ -14,6 +14,7 @@ Key Features:
 
 import os
 import uuid
+import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from pathlib import Path
@@ -23,10 +24,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 import redis
 import celery
+import json
 
 from rules.rule_engine import RuleEngine, AnalysisReport
 from segmentation.inference.ml_inference_engine import MLInferenceEngine
 from reporting.annotation_engine import AnnotationEngine
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 # Configuration
@@ -137,7 +142,7 @@ async def submit_analysis(
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
 
-            redis_client.setex(f"job:{job_id}", 3600, str(job_data))  # 1 hour TTL
+            redis_client.setex(f"job:{job_id}", 3600, json.dumps(job_data))  # 1 hour TTL
 
             # Dispatch to Celery (this will be implemented)
             from celery_tasks import analyse_part
@@ -145,7 +150,7 @@ async def submit_analysis(
 
             # Update job with task ID
             job_data["celery_task_id"] = task.id
-            redis_client.setex(f"job:{job_id}", 3600, str(job_data))
+            redis_client.setex(f"job:{job_id}", 3600, json.dumps(job_data))
         except redis.ConnectionError:
             raise HTTPException(status_code=503, detail="Redis service unavailable")
 
@@ -158,13 +163,6 @@ async def submit_analysis(
                 "poll_url": f"/job/{job_id}"
             }
         )
-
-        return {
-            "job_id": job_id,
-            "status": "accepted",
-            "message": "Analysis job submitted successfully",
-            "poll_url": f"/job/{job_id}"
-        }
 
     except Exception as e:
         # Clean up on error
@@ -187,22 +185,27 @@ async def get_job_status(job_id: str):
         if not job_data_str:
             raise HTTPException(status_code=404, detail="Job not found")
 
-        # Parse job data (simplified - in production use proper serialization)
-        job_data = eval(job_data_str.decode())
+        # Parse job data
+        job_data = json.loads(job_data_str.decode())
 
         # Check Celery task status if we have a task ID
         if "celery_task_id" in job_data:
             task_id = job_data["celery_task_id"]
             task_result = celery_app.AsyncResult(task_id)
 
+            print(f"DEBUG: Task {task_id} state: {task_result.state}, ready: {task_result.ready()}")
+            logger.info(f"Task {task_id} state: {task_result.state}, ready: {task_result.ready()}")
+            
             if task_result.state == "PENDING":
                 job_data["status"] = "PENDING"
             elif task_result.state == "PROGRESS":
                 job_data["status"] = "RUNNING"
-                job_data["progress"] = task_result.info.get("progress", 0)
+                job_data["progress"] = task_result.info.get("progress", 0) if isinstance(task_result.info, dict) else 0
             elif task_result.state == "SUCCESS":
                 job_data["status"] = "SUCCESS"
-                job_data["result"] = task_result.result
+                # Store the result from the task
+                if task_result.result:
+                    job_data["result"] = task_result.result
                 job_data["completed_at"] = datetime.now(timezone.utc).isoformat()
             elif task_result.state == "FAILURE":
                 job_data["status"] = "FAILURE"
@@ -210,6 +213,9 @@ async def get_job_status(job_id: str):
                 job_data["completed_at"] = datetime.now(timezone.utc).isoformat()
             elif task_result.state == "RETRY":
                 job_data["status"] = "RETRY"
+
+            # Always save updated job data back to Redis
+            redis_client.setex(f"job:{job_id}", 3600, json.dumps(job_data))
 
         return JobStatus(**job_data)
 
