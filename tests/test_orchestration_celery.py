@@ -44,7 +44,7 @@ endsolid test_cube"""
 class TestCeleryTasks:
     """Test cases for Celery task execution."""
 
-    @patch('celery_tasks.load_geometry')
+    @patch('celery_tasks.input_layer.load_geometry')
     @patch('celery_tasks.RuleEngine')
     @patch('celery_tasks.MLInferenceEngine')
     @patch('celery_tasks.AnnotationEngine')

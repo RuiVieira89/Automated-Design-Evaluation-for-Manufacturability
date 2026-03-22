@@ -14,7 +14,7 @@ Key Features:
 
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
@@ -35,7 +35,11 @@ CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/1")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/2")
 
 # Initialize components
-redis_client = redis.from_url(REDIS_URL)
+try:
+    redis_client = redis.from_url(REDIS_URL)
+except redis.ConnectionError:
+    print(f"Warning: Could not connect to Redis at {REDIS_URL}. Some features may not work.")
+    redis_client = None
 celery_app = celery.Celery(
     'orchestration',
     broker=CELERY_BROKER_URL,
@@ -81,7 +85,7 @@ app = FastAPI(
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "timestamp": datetime.utcnow()}
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc)}
 
 @app.post("/analyze", response_model=dict)
 async def submit_analysis(
@@ -117,27 +121,43 @@ async def submit_analysis(
         ml_cfg = eval(ml_config) if ml_config else None
         reporting_cfg = eval(reporting_config) if reporting_config else None
 
-        # Create job record in Redis
-        job_data = {
-            "job_id": job_id,
-            "status": "PENDING",
-            "file_path": str(file_path),
-            "process_type": process_type,
-            "rules_config": rules_cfg,
-            "ml_config": ml_cfg,
-            "reporting_config": reporting_cfg,
-            "created_at": datetime.utcnow().isoformat(),
-        }
+        if redis_client is None:
+            raise HTTPException(status_code=503, detail="Redis service unavailable")
 
-        redis_client.setex(f"job:{job_id}", 3600, str(job_data))  # 1 hour TTL
+        try:
+            # Create job record in Redis
+            job_data = {
+                "job_id": job_id,
+                "status": "PENDING",
+                "file_path": str(file_path),
+                "process_type": process_type,
+                "rules_config": rules_cfg,
+                "ml_config": ml_cfg,
+                "reporting_config": reporting_cfg,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
 
-        # Dispatch to Celery (this will be implemented)
-        from .celery_tasks import analyse_part
-        task = analyse_part.delay(job_id, str(file_path), process_type, rules_cfg, ml_cfg, reporting_cfg)
+            redis_client.setex(f"job:{job_id}", 3600, str(job_data))  # 1 hour TTL
 
-        # Update job with task ID
-        job_data["celery_task_id"] = task.id
-        redis_client.setex(f"job:{job_id}", 3600, str(job_data))
+            # Dispatch to Celery (this will be implemented)
+            from celery_tasks import analyse_part
+            task = analyse_part.delay(job_id, str(file_path), process_type, rules_cfg, ml_cfg, reporting_cfg)
+
+            # Update job with task ID
+            job_data["celery_task_id"] = task.id
+            redis_client.setex(f"job:{job_id}", 3600, str(job_data))
+        except redis.ConnectionError:
+            raise HTTPException(status_code=503, detail="Redis service unavailable")
+
+        return JSONResponse(
+            status_code=202,
+            content={
+                "job_id": job_id,
+                "status": "accepted",
+                "message": "Analysis job submitted successfully",
+                "poll_url": f"/job/{job_id}"
+            }
+        )
 
         return {
             "job_id": job_id,
@@ -151,12 +171,18 @@ async def submit_analysis(
         if file_path.exists():
             file_path.unlink()
 
+        # Don't catch HTTPException, let it propagate
+        if isinstance(e, HTTPException):
+            raise
         raise HTTPException(status_code=500, detail=f"Failed to submit job: {str(e)}")
 
 @app.get("/job/{job_id}", response_model=JobStatus)
 async def get_job_status(job_id: str):
     """Get the status of an analysis job."""
     try:
+        if redis_client is None:
+            raise HTTPException(status_code=503, detail="Redis service unavailable")
+
         job_data_str = redis_client.get(f"job:{job_id}")
         if not job_data_str:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -177,11 +203,11 @@ async def get_job_status(job_id: str):
             elif task_result.state == "SUCCESS":
                 job_data["status"] = "SUCCESS"
                 job_data["result"] = task_result.result
-                job_data["completed_at"] = datetime.utcnow().isoformat()
+                job_data["completed_at"] = datetime.now(timezone.utc).isoformat()
             elif task_result.state == "FAILURE":
                 job_data["status"] = "FAILURE"
                 job_data["error"] = str(task_result.info)
-                job_data["completed_at"] = datetime.utcnow().isoformat()
+                job_data["completed_at"] = datetime.now(timezone.utc).isoformat()
             elif task_result.state == "RETRY":
                 job_data["status"] = "RETRY"
 
@@ -196,6 +222,9 @@ async def get_job_status(job_id: str):
 async def cancel_job(job_id: str):
     """Cancel a running analysis job."""
     try:
+        if redis_client is None:
+            raise HTTPException(status_code=503, detail="Redis service unavailable")
+
         job_data_str = redis_client.get(f"job:{job_id}")
         if not job_data_str:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -209,7 +238,7 @@ async def cancel_job(job_id: str):
 
         # Update job status
         job_data["status"] = "CANCELLED"
-        job_data["completed_at"] = datetime.utcnow().isoformat()
+        job_data["completed_at"] = datetime.now(timezone.utc).isoformat()
         redis_client.setex(f"job:{job_id}", 3600, str(job_data))
 
         return {"message": "Job cancelled successfully"}

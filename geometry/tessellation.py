@@ -20,8 +20,10 @@ try:
     import tempfile
     import os
     OCC_AVAILABLE = True
+    ShapeType = TopoDS_Shape
 except ImportError:
     OCC_AVAILABLE = False
+    ShapeType = Any
 
 try:
     import trimesh
@@ -41,7 +43,7 @@ class TessellationEngine:
         if not TRIMESH_AVAILABLE:
             raise ImportError("trimesh not available")
 
-    def tessellate_brep(self, shape: TopoDS_Shape,
+    def tessellate_brep(self, shape: ShapeType,
                        chord_tolerance: float = 0.1,
                        angular_tolerance: float = 0.1) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """
@@ -55,7 +57,7 @@ class TessellationEngine:
         Returns:
             Tuple of (vertices, faces) as numpy arrays
         """
-        if not isinstance(shape, TopoDS_Shape):
+        if not OCC_AVAILABLE or not isinstance(shape, TopoDS_Shape):
             return None, None
 
         # Create incremental mesh
@@ -100,7 +102,7 @@ class TessellationEngine:
 
         return np.array(vertices), np.array(faces)
 
-    def tessellate_to_stl(self, shape: TopoDS_Shape,
+    def tessellate_to_stl(self, shape: ShapeType,
                          filename: str,
                          chord_tolerance: float = 0.1,
                          angular_tolerance: float = 0.1) -> bool:
@@ -116,7 +118,7 @@ class TessellationEngine:
         Returns:
             True if successful
         """
-        if not isinstance(shape, TopoDS_Shape):
+        if not OCC_AVAILABLE or not isinstance(shape, TopoDS_Shape):
             return False
 
         # Create mesh
@@ -148,7 +150,7 @@ class TessellationEngine:
         except:
             return None, None
 
-    def tessellate_with_quality_control(self, shape: TopoDS_Shape,
+    def tessellate_with_quality_control(self, shape: ShapeType,
                                       target_edge_length: float = 1.0,
                                       min_angle: float = 20.0) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """

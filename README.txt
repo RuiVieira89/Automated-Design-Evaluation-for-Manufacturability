@@ -54,6 +54,121 @@ Project structure
 └── tests/         # unit + integration tests with reference geometries
 
 
+## How to Use This Project for Design Evaluation
+
+This project provides automated manufacturability analysis for CAD models. 
+You can evaluate single parts or assemblies for manufacturing issues using the REST API.
+
+### Prerequisites
+
+- Python 3.13+
+- Redis server (for job queuing)
+- CAD files in supported formats: STEP, IGES, STL, OBJ, IFC
+
+### Quick Start
+
+1. **Activate the environment:**
+   ```bash
+   conda activate auto_eval_manuf
+   ```
+
+2. **Start Redis server:**
+   ```bash
+   redis-server
+   ```
+
+3. **Start the FastAPI server:**
+   ```bash
+   cd synchronous_request_plane_FastAPI
+   python fastapi_app.py
+   ```
+   The API will be available at `http://localhost:8000`
+
+4. **Submit a CAD file for analysis:**
+   ```bash
+   curl -X POST "http://localhost:8000/analyze" \
+     -F "file=@your_part.stl" \
+     -F "process_type=single"
+   ```
+   Response:
+   ```json
+   {
+     "job_id": "uuid-string",
+     "status": "accepted",
+     "message": "Analysis job submitted successfully",
+     "poll_url": "/job/uuid-string"
+   }
+   ```
+
+### API Endpoints
+
+- `GET /health` - Check if the service is running
+- `POST /analyze` - Submit a CAD file for analysis
+  - Parameters: `file` (upload), `process_type` ("single" or "assembly")
+  - Returns: Job ID for status polling
+- `GET /job/{job_id}` - Check analysis status and results
+- `DELETE /job/{job_id}` - Cancel a running analysis job
+
+### Supported File Formats
+
+- **STEP/IGES**: Native B-Rep geometry (recommended for precision)
+- **STL/OBJ/VTK**: Mesh formats
+- **IFC**: BIM/IFC files for industrial workflows
+
+### Analysis Results
+
+The system evaluates designs for:
+- Wall thickness violations
+- Draft angle issues
+- Undercut detection
+- Hole ratio problems
+- Tool access constraints
+- Material-specific recommendations
+
+Results include:
+- Violation reports with severity levels
+- ML-based process recommendations
+- 3D visualizations with annotated issues
+- Manufacturability scores
+
+### Testing the System
+
+Run the test suite to verify everything is working:
+
+```bash
+# Test the FastAPI orchestration layer
+python -m pytest tests/test_orchestration_fastapi.py -v
+
+# Test the Prefect workflows
+python -m pytest tests/test_orchestration_prefect.py -v
+
+# Test individual components
+python -m pytest tests/test_geometry_kernel.py -v
+python -m pytest tests/test_rules_engine.py -v
+
+# Test all
+python -m pytest tests/ --ignore=tests/test_open3D.py --ignore=tests/test_pkg_install.cpp
+```
+
+### Architecture Overview
+
+This system uses a layered architecture:
+
+- **Layer 1 (I/O)**: Loads CAD files in various formats (STEP, STL, IFC, etc.)
+- **Layer 2 (Geometry)**: Analyzes 3D geometry using B-Rep and mesh processing
+- **Layer 3 (Rules)**: Applies manufacturing rules and constraints
+- **Layer 4 (ML)**: Provides intelligent process recommendations
+- **Layer 5 (Visualization)**: Generates annotated 3D views of issues
+- **Layer 6 (Orchestration)**: Manages job queuing and API serving
+
+### Integration Options
+
+- **CAD Plugin**: Integrate with FreeCAD for in-CAD analysis
+- **Web UI**: Use the included web interface for review
+- **CI/CD**: Automate design checks in your development pipeline
+- **API**: Build custom integrations using the REST API
+
+
 CPP installed CGAL, igl, Eigen
 
 Python packages installed

@@ -76,7 +76,9 @@ class TestFastAPIApp:
                     data={"process_type": "single"}
                 )
 
-            assert response.status_code == 200
+            print("Status:", response.status_code)
+            print("Content:", response.text)
+            assert response.status_code == 202
             data = response.json()
             assert "job_id" in data
             assert data["status"] == "accepted"
@@ -172,7 +174,7 @@ class TestRequestValidation:
                 )
 
             # Should still accept but validation happens in task
-            assert response.status_code == 200
+            assert response.status_code == 202
 
     def test_large_file_handling(self, client):
         """Test handling of potentially large files."""
@@ -196,7 +198,7 @@ class TestRequestValidation:
             )
 
             # Should handle large files appropriately
-            assert response.status_code in [200, 413]  # 200 success or 413 too large
+            assert response.status_code in [202, 413]  # 202 success or 413 too large
 
 if __name__ == "__main__":
     pytest.main([__file__])

@@ -18,7 +18,19 @@ from celery_progress.backend import ProgressRecorder
 from rules.rule_engine import RuleEngine, AnalysisReport, CheckResult, Severity
 from segmentation.inference.ml_inference_engine import MLInferenceEngine, ManufacturabilityAssessment
 from reporting.annotation_engine import AnnotationEngine, AnnotationConfig
-# from io.io import load_geometry  # TODO: Implement geometry loading
+import sys
+import os
+import importlib.util
+
+# Import geometry loader
+parent_dir = os.path.dirname(os.path.dirname(__file__))
+io_path = os.path.join(parent_dir, 'io', 'io.py')
+spec = importlib.util.spec_from_file_location("io_module", io_path)
+io_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(io_module)
+input_layer = io_module.input_layer
+
+from geometry.geometry_kernel import GeometryKernel, GeometryInputs
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -90,19 +102,37 @@ def analyse_part(self, job_id: str, file_path: str, process_type: str = "single"
 
         # Step 1: Load geometry (L1)
         self.update_progress(1, 5, "Loading geometry")
-        mesh = load_geometry(file_path)
-        if mesh is None:
-            raise ValueError(f"Failed to load geometry from {file_path}")
-
-        # Step 2: Run rule checks (L3)
-        self.update_progress(2, 5, "Running rule checks")
+        geometry = input_layer.load_geometry(file_path)
+        
+        # Create geometry inputs for Layer 2
+        if geometry.is_brep:
+            geom_inputs = GeometryInputs(brep_shape=geometry.shape)
+        else:
+            geom_inputs = GeometryInputs(
+                mesh_vertices=geometry.points,
+                mesh_faces=geometry.cells
+            )
+        
+        # Step 2: Process geometry (L2)
+        self.update_progress(2, 5, "Processing geometry")
+        geom_kernel = GeometryKernel()
+        geom_outputs = geom_kernel.process_geometry(geom_inputs)
+        
+        # Step 3: Run rule checks (L3)
+        self.update_progress(3, 5, "Running rule checks")
         rule_engine = RuleEngine()
-        rule_results = rule_engine.analyze_geometry(mesh)
+        rule_results = rule_engine.analyze({
+            'brep_results': geom_outputs.brep_results,
+            'mesh_results': geom_outputs.mesh_results
+        })
 
         # Step 3: ML assessment (L4)
         self.update_progress(3, 5, "Running ML assessment")
         ml_engine = MLInferenceEngine()
-        ml_assessment = ml_engine.assess_manufacturability(mesh, rule_results)
+        ml_assessment = ml_engine.analyze_manufacturability(rule_results.check_results, {
+            'brep_results': geom_outputs.brep_results,
+            'mesh_results': geom_outputs.mesh_results
+        })
 
         # Step 4: Generate visualizations (L5)
         self.update_progress(4, 5, "Generating visualizations")
@@ -110,8 +140,17 @@ def analyse_part(self, job_id: str, file_path: str, process_type: str = "single"
         annotation_config = AnnotationConfig(**reporting_cfg)
         annotation_engine = AnnotationEngine(annotation_config)
 
+        # Create PyVista mesh from geometry
+        import pyvista as pv
+        if geometry.is_brep:
+            # Tessellate if needed
+            tessellated = geometry.tessellate()
+            pv_mesh = pv.PolyData(tessellated.points, tessellated.cells)
+        else:
+            pv_mesh = pv.PolyData(geometry.points, geometry.cells)
+
         # Create annotated scene
-        plotter = annotation_engine.create_annotated_scene(mesh, rule_results, ml_assessment)
+        plotter = annotation_engine.create_annotated_scene(pv_mesh, rule_results.check_results, ml_assessment)
 
         # Export visualizations
         output_dir = Path(f"/tmp/analysis_results/{job_id}")
@@ -133,8 +172,8 @@ def analyse_part(self, job_id: str, file_path: str, process_type: str = "single"
             "job_id": job_id,
             "file_path": file_path,
             "process_type": process_type,
-            "rule_results": [result.__dict__ for result in rule_results],
-            "ml_assessment": ml_assessment.__dict__ if ml_assessment else None,
+            "rule_results": [result.__dict__ for result in rule_results.check_results],
+            "ml_assessment": ml_assessment,
             "visualizations": visualizations,
             "status": "completed",
             "timestamp": str(celery_app.now())

@@ -16,8 +16,14 @@ try:
     from OCC.Core.GeomLProp import GeomLProp_SLProps
     from OCC.Core.gp import gp_Pnt
     OCC_AVAILABLE = True
+    ShapeType = TopoDS_Shape
+    FaceType = TopoDS_Face
+    EdgeType = TopoDS_Edge
 except ImportError:
     OCC_AVAILABLE = False
+    ShapeType = Any
+    FaceType = Any
+    EdgeType = Any
 
 
 class BRepKernel:
@@ -29,7 +35,7 @@ class BRepKernel:
         if not OCC_AVAILABLE:
             raise ImportError("pythonocc-core not available. Install with: conda install pythonocc-core")
 
-    def get_topology_info(self, shape: TopoDS_Shape) -> Dict[str, Any]:
+    def get_topology_info(self, shape: ShapeType) -> Dict[str, Any]:
         """
         Extract topology information from B-Rep shape.
 
@@ -39,7 +45,7 @@ class BRepKernel:
         Returns:
             Dictionary with face count, edge count, vertex count, etc.
         """
-        if not isinstance(shape, TopoDS_Shape):
+        if not OCC_AVAILABLE or not isinstance(shape, TopoDS_Shape):
             return {}
 
         # Count faces
@@ -72,7 +78,7 @@ class BRepKernel:
             'faces': faces  # Keep for further analysis
         }
 
-    def analyze_curvature(self, shape: TopoDS_Shape) -> Dict[str, Any]:
+    def analyze_curvature(self, shape: ShapeType) -> Dict[str, Any]:
         """
         Analyze surface curvature on B-Rep faces.
 
@@ -82,7 +88,7 @@ class BRepKernel:
         Returns:
             Dictionary with curvature statistics per face
         """
-        if not isinstance(shape, TopoDS_Shape):
+        if not OCC_AVAILABLE or not isinstance(shape, TopoDS_Shape):
             return {}
 
         face_explorer = TopExp_Explorer(shape, TopAbs_FACE)
@@ -122,9 +128,9 @@ class BRepKernel:
 
         return curvature_data
 
-    def perform_boolean_operation(self, shape1: TopoDS_Shape,
-                                shape2: TopoDS_Shape,
-                                operation: str) -> TopoDS_Shape:
+    def perform_boolean_operation(self, shape1: ShapeType,
+                                shape2: ShapeType,
+                                operation: str) -> ShapeType:
         """
         Perform Boolean operations between two shapes.
 
@@ -140,7 +146,7 @@ class BRepKernel:
         # This requires more complex OCCT operations
         return shape1  # Return first shape as placeholder
 
-    def get_face_classification(self, shape: TopoDS_Shape) -> Dict[str, List[int]]:
+    def get_face_classification(self, shape: ShapeType) -> Dict[str, List[int]]:
         """
         Classify faces by type (planar, cylindrical, etc.).
 

@@ -23,9 +23,11 @@ try:
     from OCC.Core.TopExp import TopExp_Explorer
     from OCC.Core.TopAbs import TopAbs_FACE
     OCC_AVAILABLE = True
+    ShapeType = TopoDS_Shape
 except ImportError:
     OCC_AVAILABLE = False
     print("Warning: pythonocc-core not available")
+    ShapeType = Any
 
 try:
     import ifcopenshell
@@ -54,7 +56,7 @@ class Geometry:
 
     def __init__(self,
                  is_brep: bool = False,
-                 shape: Optional[TopoDS_Shape] = None,
+                 shape: Optional[ShapeType] = None,
                  points: Optional[np.ndarray] = None,
                  cells: Optional[np.ndarray] = None,
                  metadata: Optional[Dict[str, Any]] = None):
