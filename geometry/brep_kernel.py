@@ -9,6 +9,11 @@ from typing import Dict, Any, List, Tuple
 import numpy as np
 try:
     from OCC.Core.TopoDS import TopoDS_Shape, TopoDS_Face, TopoDS_Edge
+    try:
+        from OCC.Core.TopoDS import topods_Face as _topods_face_cast
+    except ImportError:
+        from OCC.Core.TopoDS import topods
+        _topods_face_cast = topods.Face
     from OCC.Core.TopExp import TopExp_Explorer
     from OCC.Core.TopAbs import TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX
     from OCC.Core.BRep import BRep_Tool
@@ -96,11 +101,11 @@ class BRepKernel:
 
         face_index = 0
         while face_explorer.More():
-            face = TopoDS_Face(face_explorer.Current())
+            face = _topods_face_cast(face_explorer.Current())
 
             # Get surface geometry
             surface = BRep_Tool.Surface(face)
-            if surface.IsNull():
+            if surface is None or (hasattr(surface, 'IsNull') and surface.IsNull()):
                 face_explorer.Next()
                 continue
 

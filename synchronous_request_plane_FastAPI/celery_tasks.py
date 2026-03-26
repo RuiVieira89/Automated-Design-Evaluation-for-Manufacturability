@@ -166,24 +166,23 @@ def analyse_part(self, job_id: str, file_path: str, process_type: str = "single"
 
         # Create PyVista mesh from geometry
         import pyvista as pv
+        def to_pv_cells(cells: np.ndarray) -> np.ndarray:
+            if cells.ndim == 2 and cells.shape[1] == 3:
+                n_cells = cells.shape[0]
+                pv_cells = np.zeros((n_cells, 4), dtype=np.int32)
+                pv_cells[:, 0] = 3
+                pv_cells[:, 1:] = cells
+                return pv_cells.flatten()
+            return cells
+
         if geometry.is_brep:
             # Tessellate if needed
             tessellated = geometry.tessellate()
-            pv_mesh = pv.PolyData(tessellated.points, tessellated.cells)
+            pv_mesh = pv.PolyData(tessellated.points, to_pv_cells(tessellated.cells))
         else:
             # Convert mesh cells to PyVista format
             # PyVista expects cells as [n_verts, v1, v2, ..., vn, n_verts, ...]
-            if geometry.cells.ndim == 2 and geometry.cells.shape[1] == 3:  # Triangles
-                # Flatten triangles into PyVista cell format
-                n_cells = geometry.cells.shape[0]
-                cells = np.zeros((n_cells, 4), dtype=np.int32)
-                cells[:, 0] = 3  # Number of vertices per cell
-                cells[:, 1:] = geometry.cells
-                cells = cells.flatten()
-                pv_mesh = pv.PolyData(geometry.points, cells)
-            else:
-                # For other cell types, try direct conversion
-                pv_mesh = pv.PolyData(geometry.points, geometry.cells)
+            pv_mesh = pv.PolyData(geometry.points, to_pv_cells(geometry.cells))
 
         # Create annotated scene
         plotter = annotation_engine.create_annotated_scene(pv_mesh, rule_results.check_results, ml_assessment)

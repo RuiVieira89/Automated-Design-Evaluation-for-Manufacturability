@@ -22,6 +22,7 @@ try:
     from OCC.Core.BRep import BRep_Tool
     from OCC.Core.TopExp import TopExp_Explorer
     from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopLoc import TopLoc_Location
     OCC_AVAILABLE = True
     ShapeType = TopoDS_Shape
 except ImportError:
@@ -87,19 +88,22 @@ class Geometry:
         explorer = TopExp_Explorer(self.shape, TopAbs_FACE)
         while explorer.More():
             face = explorer.Current()
-            triangulation = BRep_Tool.Triangulation(face, None)
+            location = TopLoc_Location()
+            triangulation = BRep_Tool.Triangulation(face, location)
             if triangulation:
                 # Get vertices
-                nodes = triangulation.Nodes()
                 for i in range(1, triangulation.NbNodes() + 1):
-                    p = nodes.Value(i)
+                    p = triangulation.Node(i)
                     points.append([p.X(), p.Y(), p.Z()])
 
                 # Get triangles
-                triangles = triangulation.Triangles()
                 for i in range(1, triangulation.NbTriangles() + 1):
-                    t = triangles.Value(i)
-                    faces.append([t.Get(1)-1, t.Get(2)-1, t.Get(3)-1])  # 0-based indexing
+                    t = triangulation.Triangle(i)
+                    try:
+                        v1, v2, v3 = t.Get()
+                    except TypeError:
+                        v1, v2, v3 = t.Get(1), t.Get(2), t.Get(3)
+                    faces.append([v1 - 1, v2 - 1, v3 - 1])  # 0-based indexing
 
             explorer.Next()
 

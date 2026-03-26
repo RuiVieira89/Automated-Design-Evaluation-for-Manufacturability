@@ -19,10 +19,41 @@ STL_FILE="${PROJECT_ROOT}/data/FlandersMake_part-Merger.stl"
 FALLBACK_FILE="${PROJECT_ROOT}/data/cube.off"
 
 ENABLE_CELERY="${START_CELERY:-false}"
-for arg in "$@"; do
-    if [ "$arg" = "--with-celery" ]; then
-        ENABLE_CELERY="true"
-    fi
+ANALYSIS_FILE_ARG=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --with-celery)
+            ENABLE_CELERY="true"
+            shift
+            ;;
+        --file)
+            if [ -z "$2" ]; then
+                echo -e "${RED}Error: --file requires a path argument${NC}"
+                exit 1
+            fi
+            ANALYSIS_FILE_ARG="$2"
+            shift 2
+            ;;
+        -h|--help)
+            echo "Usage: bash start_project.sh [--with-celery] [--file <path>] [file_path]"
+            echo ""
+            echo "Examples:"
+            echo "  bash start_project.sh --with-celery"
+            echo "  bash start_project.sh --file data/cube.off"
+            echo "  bash start_project.sh data/FlandersMake_part-Merger.stl"
+            exit 0
+            ;;
+        -*)
+            echo -e "${RED}Error: Unknown option '$1'${NC}"
+            echo "Run with --help to see supported arguments."
+            exit 1
+            ;;
+        *)
+            ANALYSIS_FILE_ARG="$1"
+            shift
+            ;;
+    esac
 done
 
 echo -e "${BLUE}========================================${NC}"
@@ -127,7 +158,16 @@ echo -e ""
 echo -e "${YELLOW}[7/7] Running sample analysis and opening visualization...${NC}"
 
 ANALYSIS_FILE=""
-if [ -f "$STL_FILE" ]; then
+if [ -n "$ANALYSIS_FILE_ARG" ]; then
+    if [ -f "$ANALYSIS_FILE_ARG" ]; then
+        ANALYSIS_FILE="$ANALYSIS_FILE_ARG"
+    elif [ -f "${PROJECT_ROOT}/$ANALYSIS_FILE_ARG" ]; then
+        ANALYSIS_FILE="${PROJECT_ROOT}/$ANALYSIS_FILE_ARG"
+    else
+        echo -e "${RED}Error: Analysis file not found: $ANALYSIS_FILE_ARG${NC}"
+        exit 1
+    fi
+elif [ -f "$STL_FILE" ]; then
     ANALYSIS_FILE="$STL_FILE"
 elif [ -f "$FALLBACK_FILE" ]; then
     ANALYSIS_FILE="$FALLBACK_FILE"
