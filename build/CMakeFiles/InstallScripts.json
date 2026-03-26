@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/cmake_install.cmake",
-		"/Users/rui/dev/Automated-Design-Evaluation-for-Manufacturability/build/_deps/libigl-build/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

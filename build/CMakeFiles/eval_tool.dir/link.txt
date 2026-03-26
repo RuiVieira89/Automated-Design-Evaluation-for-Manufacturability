@@ -1,1 +1,0 @@
-/usr/bin/clang++ -g -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/eval_tool.dir/hello.cpp.o -o eval_tool  /opt/homebrew/lib/libgmpxx.dylib /opt/homebrew/lib/libmpfr.dylib /opt/homebrew/lib/libgmp.dylib
