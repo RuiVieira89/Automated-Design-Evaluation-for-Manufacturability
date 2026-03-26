@@ -10,7 +10,7 @@ from OCC.Core.BRep import BRep_Builder, BRep_Tool
 from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
 from OCC.Core.IFSelect import IFSelect_RetDone
 from OCC.Core.STEPControl import STEPControl_Reader
-from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Shape, topods_Face
+from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Shape, topods
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopAbs import TopAbs_FACE
 from OCC.Core.TopLoc import TopLoc_Location
@@ -93,7 +93,7 @@ def tessellate_shape(
 
     explorer = TopExp_Explorer(shape, TopAbs_FACE)
     while explorer.More():
-        face = topods_Face(explorer.Current())
+        face = topods.Face(explorer.Current())
         location = TopLoc_Location()
         triangulation = BRep_Tool.Triangulation(face, location)
         if triangulation is None:
@@ -101,19 +101,33 @@ def tessellate_shape(
             continue
 
         transformation = location.Transformation()
-        nodes = triangulation.Nodes()
-        triangles = triangulation.Triangles()
 
         offset = len(vertices)
-        for idx in range(1, nodes.Length() + 1):
-            point = nodes.Value(idx)
-            point = point.Transformed(transformation)
-            vertices.append((point.X(), point.Y(), point.Z()))
+        if hasattr(triangulation, "Nodes"):
+            nodes = triangulation.Nodes()
+            for idx in range(1, nodes.Length() + 1):
+                point = nodes.Value(idx)
+                point = point.Transformed(transformation)
+                vertices.append((point.X(), point.Y(), point.Z()))
+        else:
+            node_count = triangulation.NbNodes()
+            for idx in range(1, node_count + 1):
+                point = triangulation.Node(idx)
+                point = point.Transformed(transformation)
+                vertices.append((point.X(), point.Y(), point.Z()))
 
-        for idx in range(1, triangles.Length() + 1):
-            triangle = triangles.Value(idx)
-            n1, n2, n3 = triangle.Get()
-            faces.append((offset + n1 - 1, offset + n2 - 1, offset + n3 - 1))
+        if hasattr(triangulation, "Triangles"):
+            triangles = triangulation.Triangles()
+            for idx in range(1, triangles.Length() + 1):
+                triangle = triangles.Value(idx)
+                n1, n2, n3 = triangle.Get()
+                faces.append((offset + n1 - 1, offset + n2 - 1, offset + n3 - 1))
+        else:
+            tri_count = triangulation.NbTriangles()
+            for idx in range(1, tri_count + 1):
+                triangle = triangulation.Triangle(idx)
+                n1, n2, n3 = triangle.Get()
+                faces.append((offset + n1 - 1, offset + n2 - 1, offset + n3 - 1))
 
         explorer.Next()
 
