@@ -15,6 +15,15 @@ NC='\033[0m' # No Color
 # Get the project root directory
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONDA_ENV="auto_eval_manuf"
+STL_FILE="${PROJECT_ROOT}/data/FlandersMake_part-Merger.stl"
+FALLBACK_FILE="${PROJECT_ROOT}/data/cube.off"
+
+ENABLE_CELERY="${START_CELERY:-false}"
+for arg in "$@"; do
+    if [ "$arg" = "--with-celery" ]; then
+        ENABLE_CELERY="true"
+    fi
+done
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}CAD Design Evaluation System Startup${NC}"
@@ -95,7 +104,7 @@ echo -e ""
 
 # Optionally start Celery workers
 echo -e "${YELLOW}[6/7] Celery workers setup...${NC}"
-if [ "$START_CELERY" = "true" ] || [ "$1" = "--with-celery" ]; then
+if [ "$ENABLE_CELERY" = "true" ]; then
     echo -e "${YELLOW}Starting Celery worker...${NC}"
     celery -A celery_tasks worker --loglevel=info > "$PROJECT_ROOT/celery.log" 2>&1 &
     CELERY_PID=$!
@@ -112,6 +121,136 @@ if [ "$START_CELERY" = "true" ] || [ "$1" = "--with-celery" ]; then
 else
     echo -e "${YELLOW}Celery workers not started (use --with-celery to enable)${NC}"
 fi
+echo -e ""
+
+# Run analysis and open browser like demo.sh
+echo -e "${YELLOW}[7/7] Running sample analysis and opening visualization...${NC}"
+
+ANALYSIS_FILE=""
+if [ -f "$STL_FILE" ]; then
+    ANALYSIS_FILE="$STL_FILE"
+elif [ -f "$FALLBACK_FILE" ]; then
+    ANALYSIS_FILE="$FALLBACK_FILE"
+else
+    echo -e "${RED}Error: No sample file found for analysis${NC}"
+    echo -e "${YELLOW}Expected one of:${NC}"
+    echo -e "${YELLOW}  $STL_FILE${NC}"
+    echo -e "${YELLOW}  $FALLBACK_FILE${NC}"
+    exit 1
+fi
+
+echo -e "${YELLOW}Checking API health...${NC}"
+HEALTH_RESPONSE=$(curl -s http://localhost:$FASTAPI_PORT/health)
+if echo "$HEALTH_RESPONSE" | grep -q "healthy"; then
+    echo -e "${GREEN}✓ API health check passed${NC}"
+else
+    echo -e "${RED}Error: API health check failed${NC}"
+    echo -e "${YELLOW}Response: $HEALTH_RESPONSE${NC}"
+    exit 1
+fi
+
+if [ "$ENABLE_CELERY" != "true" ]; then
+    echo -e "${YELLOW}Celery worker is required for async analysis; starting it automatically...${NC}"
+    celery -A celery_tasks worker --loglevel=info > "$PROJECT_ROOT/celery.log" 2>&1 &
+    CELERY_PID=$!
+    sleep 2
+    if kill -0 $CELERY_PID 2> /dev/null; then
+        echo -e "${GREEN}✓ Celery worker started (PID: $CELERY_PID)${NC}"
+        ENABLE_CELERY="true"
+    else
+        echo -e "${RED}Error: Failed to start Celery worker${NC}"
+        echo -e "${YELLOW}Check logs: tail -f $PROJECT_ROOT/celery.log${NC}"
+        exit 1
+    fi
+fi
+
+echo -e "${YELLOW}Submitting analysis job...${NC}"
+echo -e "${BLUE}File: $(basename "$ANALYSIS_FILE")${NC}"
+echo -e "${BLUE}Size: $(du -h "$ANALYSIS_FILE" | cut -f1)${NC}"
+
+ANALYSIS_RESPONSE=$(curl -s -X POST http://localhost:$FASTAPI_PORT/analyze \
+  -F "file=@$ANALYSIS_FILE" \
+  -F "process_type=single")
+
+echo -e "${GREEN}✓ Analysis job submitted${NC}"
+echo -e "${BLUE}Response: $ANALYSIS_RESPONSE${NC}"
+
+JOB_ID=$(echo "$ANALYSIS_RESPONSE" | grep -o '"job_id":"[^"]*"' | cut -d'"' -f4)
+if [ -z "$JOB_ID" ]; then
+    echo -e "${RED}Error: Could not extract job_id from response${NC}"
+    exit 1
+fi
+
+MAX_POLLS=30
+POLL_COUNT=0
+JOB_STATUS=""
+
+while [ $POLL_COUNT -lt $MAX_POLLS ]; do
+    echo -e "${YELLOW}Checking job status (attempt $((POLL_COUNT+1))/$MAX_POLLS)...${NC}"
+    JOB_STATUS=$(curl -s http://localhost:$FASTAPI_PORT/job/$JOB_ID)
+
+    STATUS=$(echo "$JOB_STATUS" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('status', ''))" 2>/dev/null)
+    if [ -z "$STATUS" ]; then
+        STATUS=$(echo "$JOB_STATUS" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+    fi
+
+    case "$STATUS" in
+        "SUCCESS")
+            echo -e "${GREEN}✓ Analysis completed successfully!${NC}"
+            break
+            ;;
+        "FAILURE")
+            echo -e "${RED}✗ Analysis failed${NC}"
+            ERROR=$(echo "$JOB_STATUS" | grep -o '"error":"[^"]*"' | cut -d'"' -f4)
+            echo -e "${RED}Error: $ERROR${NC}"
+            exit 1
+            ;;
+        "PENDING"|"RUNNING")
+            echo -e "${YELLOW}⏳ Status: $STATUS${NC}"
+            PROGRESS=$(echo "$JOB_STATUS" | grep -o '"progress":[0-9.]*' | cut -d':' -f2)
+            if [ -n "$PROGRESS" ]; then
+                echo -e "${YELLOW}Progress: ${PROGRESS}%${NC}"
+            fi
+            ;;
+        *)
+            echo -e "${YELLOW}Status: $STATUS${NC}"
+            ;;
+    esac
+
+    if [ "$STATUS" != "SUCCESS" ]; then
+        sleep 3
+        POLL_COUNT=$((POLL_COUNT+1))
+    fi
+done
+
+if [ $POLL_COUNT -ge $MAX_POLLS ]; then
+    echo -e "${RED}Error: Analysis timed out after $MAX_POLLS attempts${NC}"
+    exit 1
+fi
+
+VIZ_URL="http://localhost:${FASTAPI_PORT}/job/${JOB_ID}/visualization"
+echo -e "${YELLOW}Checking for 3D visualization...${NC}"
+VIZ_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$VIZ_URL")
+
+if [ "$VIZ_STATUS" = "200" ]; then
+    echo -e "${GREEN}✓ Interactive 3D visualization ready${NC}"
+    echo -e "${GREEN}  URL: $VIZ_URL${NC}"
+    echo -e "${YELLOW}Opening browser - rotate the part by dragging, scroll to zoom.${NC}"
+    xdg-open "$VIZ_URL" 2>/dev/null \
+      || open "$VIZ_URL" 2>/dev/null \
+      || python3 -m webbrowser "$VIZ_URL" 2>/dev/null \
+      || echo -e "${YELLOW}Could not open browser automatically. Open manually: $VIZ_URL${NC}"
+else
+    echo -e "${YELLOW}⚠ Visualization endpoint returned HTTP $VIZ_STATUS${NC}"
+    echo -e "${YELLOW}  The HTML file may not have been generated (check celery.log).${NC}"
+    echo -e "${YELLOW}  You can retry manually: curl $VIZ_URL${NC}"
+fi
+
+echo -e ""
+echo -e "${BLUE}Analysis Job:${NC}"
+echo -e "  • Job ID: $JOB_ID"
+echo -e "  • Result: http://localhost:$FASTAPI_PORT/job/$JOB_ID"
+echo -e "  • 3D Visualization: $VIZ_URL"
 echo -e ""
 
 # Summary
@@ -148,7 +287,7 @@ echo -e "  • FastAPI: ${YELLOW}tail -f $PROJECT_ROOT/fastapi.log${NC}"
 echo -e "  • Redis:   ${YELLOW}tail -f $PROJECT_ROOT/redis.log${NC}"
 echo -e ""
 
-if [ "$START_CELERY" = "true" ] || [ "$1" = "--with-celery" ]; then
+if [ "$ENABLE_CELERY" = "true" ]; then
     echo -e "  • Celery:  ${YELLOW}tail -f $PROJECT_ROOT/celery.log${NC}"
 fi
 

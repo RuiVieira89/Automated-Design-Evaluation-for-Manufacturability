@@ -255,6 +255,7 @@ async def cancel_job(job_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to cancel job: {str(e)}")
 
 
+@app.get("/visualization/{job_id}", response_class=HTMLResponse)
 @app.get("/job/{job_id}/visualization", response_class=HTMLResponse)
 async def get_visualization(job_id: str):
 
