@@ -1,1 +1,2 @@
 pythonocc-core
+pyvista

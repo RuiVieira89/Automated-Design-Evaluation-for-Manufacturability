@@ -17,6 +17,11 @@ try:
 except Exception:
     HAVE_OCC = False
 
+try:
+    from visualization.step_viewer import HAVE_PYVISTA, plot_step_file
+except Exception:
+    HAVE_PYVISTA = False
+
 DATA_DIR = ROOT / "data"
 
 
@@ -36,6 +41,9 @@ class StepReaderTests(unittest.TestCase):
                 self.assertTrue(shapes)
                 for shape in shapes:
                     self.assertFalse(shape.IsNull())
+
+                if HAVE_PYVISTA:
+                    plot_step_file(str(path), off_screen=True)
 
 
 if __name__ == "__main__":
