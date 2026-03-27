@@ -44,13 +44,6 @@ def parse_args() -> argparse.Namespace:
         help="Open an interactive 3-D window with per-face colour coding and labels",
     )
     parser.add_argument(
-        "--no-arrows",
-        dest="arrows",
-        action="store_false",
-        default=True,
-        help="Suppress arrow annotations in the 3-D view",
-    )
-    parser.add_argument(
         "--no-labels",
         dest="labels",
         action="store_false",
@@ -157,7 +150,6 @@ def main() -> None:
             deflection=args.deflection,
             angle=args.angle,
             show_labels=args.labels,
-            show_arrows=args.arrows,
             off_screen=off_screen,
             screenshot_path=args.screenshot,
         )

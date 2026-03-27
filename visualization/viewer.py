@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -78,15 +77,6 @@ def _face_to_pyvista(
     return pv.PolyData(verts, faces_pv)
 
 
-def _arrow_scale(bounds: Tuple[float, ...]) -> float:
-    """Return a reasonable arrow length relative to the overall bounding box."""
-    dx = bounds[1] - bounds[0]
-    dy = bounds[3] - bounds[2]
-    dz = bounds[5] - bounds[4]
-    diagonal = math.sqrt(dx * dx + dy * dy + dz * dz)
-    return max(diagonal * 0.06, 1e-6)
-
-
 def build_labeled_meshes(
     normalized_shape,
     solid_shapes: List,
@@ -150,7 +140,6 @@ def plot_normalized_shape(
     deflection: float = 0.1,
     angle: float = 0.5,
     show_labels: bool = True,
-    show_arrows: bool = True,
     show_edges: bool = True,
     off_screen: bool = False,
     screenshot_path: Optional[str] = None,
@@ -177,10 +166,6 @@ def plot_normalized_shape(
         Angular deflection used when tessellating faces.
     show_labels:
         When ``True``, add text labels at each face centre.
-    show_arrows:
-        When ``True``, draw an arrow from each face centre pointing outward
-        along the face normal (planes) or away from the shape centre
-        (curved surfaces).
     show_edges:
         When ``True``, draw face edges as a wireframe overlay.
     off_screen:
@@ -205,10 +190,6 @@ def plot_normalized_shape(
     if not face_meshes:
         raise VisualizationError("No face meshes could be tessellated")
 
-    # Collect the overall bounding box for scaling arrows
-    combined = pv.MultiBlock(face_meshes).combine()
-    arrow_len = _arrow_scale(combined.bounds)
-
     plotter = pv.Plotter(off_screen=off_screen, window_size=list(window_size))
     plotter.set_background("white")
 
@@ -227,64 +208,22 @@ def plot_normalized_shape(
             line_width=0.5,
         )
 
-    # --- Arrows and labels ---
-    if show_arrows or show_labels:
+    # --- Labels ---
+    if show_labels:
         centers_np = np.asarray(centers, dtype=float)
-
-        # Compute outward directions for arrows.
-        # For each face we try to use the stored normal; fall back to the
-        # direction from the overall bounding-box centre.
-        shape_centre = np.asarray(combined.center)
-
-        directions: List[Tuple[float, float, float]] = []
-        for label in labels:
-            directions.append((0.0, 0.0, 0.0))  # placeholder; filled below
-
-        # Build a quick lookup: label → solid+face normal from normalized_shape
-        label_to_normal: Dict[str, Optional[Tuple[float, float, float]]] = {}
-        for solid_data in normalized_shape.solids:
-            for fd in solid_data.faces:
-                key = f"S{solid_data.solid_id} F{fd.face_id}\n{fd.surface_type}"
-                label_to_normal[key] = fd.normal
-
-        directions_np = np.zeros((len(labels), 3), dtype=float)
-        for idx, (label, centre) in enumerate(zip(labels, centers)):
-            normal = label_to_normal.get(label)
-            if normal is not None:
-                directions_np[idx] = normal
-            else:
-                # Point away from overall shape centre
-                diff = np.asarray(centre) - shape_centre
-                norm = np.linalg.norm(diff)
-                directions_np[idx] = diff / norm if norm > 1e-9 else np.array([0.0, 0.0, 1.0])
-
-        if show_arrows:
-            arrow_starts = centers_np - directions_np * arrow_len * 0.5
-            arrows = pv.PolyData(arrow_starts)
-            arrows["direction"] = directions_np
-            arrows["magnitude"] = np.full(len(labels), arrow_len)
-            glyph = arrows.glyph(
-                orient="direction",
-                scale="magnitude",
-                geom=pv.Arrow(),
-                factor=1.0,
-            )
-            plotter.add_mesh(glyph, color="dimgray")
-
-        if show_labels:
-            label_pts = pv.PolyData(centers_np)
-            label_pts["labels"] = labels
-            plotter.add_point_labels(
-                label_pts,
-                "labels",
-                font_size=10,
-                point_color="red",
-                point_size=6,
-                render_points_as_spheres=True,
-                always_visible=True,
-                shape_opacity=0.6,
-                shape_color="white",
-            )
+        label_pts = pv.PolyData(centers_np)
+        label_pts["labels"] = labels
+        plotter.add_point_labels(
+            label_pts,
+            "labels",
+            font_size=10,
+            point_color="red",
+            point_size=6,
+            render_points_as_spheres=True,
+            always_visible=True,
+            shape_opacity=0.6,
+            shape_color="white",
+        )
 
     # --- Legend ---
     legend_entries = [
