@@ -5,6 +5,8 @@ Usage::
     python examples/normalize_shape.py data/simple_rib.step
     python examples/normalize_shape.py data/escavator_arm-Assembly.step --context
     python examples/normalize_shape.py data/simple_rib.step --verbose
+    python examples/normalize_shape.py data/simple_rib.step --visualize
+    python examples/normalize_shape.py data/escavator_arm-Assembly.step --visualize --screenshot out.png
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from load_cad.step_reader import read_step_single
-from post_process.shape_normalizer import normalize_shape
+from post_process.shape_normalizer import extract_solids, normalize_shape
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,11 +38,39 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print per-face details (type, area, centre, normal)",
     )
+    parser.add_argument(
+        "--visualize",
+        action="store_true",
+        help="Open an interactive 3-D window with per-face colour coding and labels",
+    )
+    parser.add_argument(
+        "--no-arrows",
+        dest="arrows",
+        action="store_false",
+        default=True,
+        help="Suppress arrow annotations in the 3-D view",
+    )
+    parser.add_argument(
+        "--no-labels",
+        dest="labels",
+        action="store_false",
+        default=True,
+        help="Suppress text labels in the 3-D view",
+    )
+    parser.add_argument(
+        "--screenshot",
+        default=None,
+        metavar="PATH",
+        help="Save a screenshot of the 3-D view to this file (implies --visualize)",
+    )
+    parser.add_argument("--deflection", type=float, default=0.1)
+    parser.add_argument("--angle", type=float, default=0.5)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    do_visualize = args.visualize or args.screenshot is not None
 
     print(f"Loading:     {args.path}")
     compound = read_step_single(args.path)
@@ -102,6 +132,37 @@ def main() -> None:
                     print(f"            normal=({nx:.4f}, {ny:.4f}, {nz:.4f})")
 
         print()
+
+    # ------------------------------------------------------------------ #
+    # 3-D labelled visualization                                          #
+    # ------------------------------------------------------------------ #
+    if do_visualize:
+        try:
+            from visualization.viewer import HAVE_PYVISTA, plot_normalized_shape
+        except ImportError:
+            print("ERROR: visualization module not found.")
+            return
+
+        if not HAVE_PYVISTA:
+            print("ERROR: pyvista is not installed – cannot visualize.")
+            return
+
+        solid_shapes = extract_solids(compound)
+
+        off_screen = args.screenshot is not None
+        print("Opening 3-D labelled viewer …")
+        plot_normalized_shape(
+            result,
+            solid_shapes,
+            deflection=args.deflection,
+            angle=args.angle,
+            show_labels=args.labels,
+            show_arrows=args.arrows,
+            off_screen=off_screen,
+            screenshot_path=args.screenshot,
+        )
+        if args.screenshot:
+            print(f"Screenshot saved to: {args.screenshot}")
 
 
 if __name__ == "__main__":

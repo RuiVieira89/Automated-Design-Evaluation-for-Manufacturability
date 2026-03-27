@@ -5,11 +5,13 @@ from .shape_normalizer import (
     FaceData,
     NormalizedShape,
     SolidData,
+    extract_solids,
     normalize_shape,
 )
 
 __all__ = [
     "normalize_shape",
+    "extract_solids",
     "NormalizedShape",
     "SolidData",
     "FaceData",

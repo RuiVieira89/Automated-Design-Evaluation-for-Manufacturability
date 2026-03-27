@@ -194,6 +194,29 @@ def normalize_shape(
     return NormalizedShape(solids=solids, assembly_context=context)
 
 
+def extract_solids(compound: TopoDS_Shape) -> List[TopoDS_Solid]:
+    """Return the list of ``TopoDS_Solid`` objects extracted from *compound*.
+
+    The order matches the ``solid_id`` assigned by :func:`normalize_shape`.
+    This is useful when you need both the normalized metadata *and* the raw
+    OCC solid objects for further processing (e.g., per-face tessellation for
+    visualization).
+
+    Parameters
+    ----------
+    compound:
+        Root shape (same value passed to :func:`normalize_shape`).
+
+    Returns
+    -------
+    List[TopoDS_Solid]
+        Solids in depth-first traversal order.
+    """
+    solid_shapes: List[TopoDS_Solid] = []
+    _collect_solids(compound, solid_shapes, context=None, path=())
+    return solid_shapes
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -317,6 +340,7 @@ def _compute_face_attributes(face, face_id: int) -> FaceData:
 
 __all__ = [
     "normalize_shape",
+    "extract_solids",
     "NormalizedShape",
     "SolidData",
     "FaceData",
