@@ -18,9 +18,9 @@ from load_cad.step_reader import read_step_single, tessellate_shape
 # Colour palette for surface types – visually distinct, colour-blind friendly
 _SURFACE_COLOURS: Dict[str, str] = {
     "Plane":    "#4C72B0",  # blue
-    "Cylinder": "#DD8452",  # orange
-    "Cone":     "#55A868",  # green
-    "Sphere":   "#C44E52",  # red
+    "Cylinder": "#C44E52",  # red
+    "Cone":     "#DD8452",  # orange
+    "Sphere":   "#55A868",  # green
     "Torus":    "#8172B3",  # purple
     "Bezier":   "#937860",  # brown
     "BSpline":  "#DA8BC3",  # pink
