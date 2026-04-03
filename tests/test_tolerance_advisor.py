@@ -1,11 +1,10 @@
-import json
 from tolerance_advisor.iso286 import propose_tolerance
+from tolerance_advisor.helpers import load_process_capabilities
 
 
 def load_sample_db():
-    p = "tolerance_advisor/process_capabilities.json"
-    with open(p, "r") as fh:
-        return json.load(fh)
+    # Use the package helper which will prefer YAML and fall back to JSON.
+    return load_process_capabilities()
 
 
 def test_propose_tolerance_happy_path():
