@@ -23,9 +23,12 @@ def propose_surface_roughness(process: str, feature_size_mm: float, process_db: 
         base = 1.6  # micrometers
         factor = 1.0 + (feature_size_mm / 100.0)
         ra = base * factor
+    # If the DB entry is a list, use the minimum (tightest) value for Rz
+    # but keep the full list in Ra so callers can display the full range.
+    ra_scalar = min(ra) if isinstance(ra, list) else float(ra)
     # approximate Rz (common engineering relation: Rz ≈ 4 * Ra) - pragmatic
-    rz = ra * 4.0
-    return {"Ra_um": float(ra), "Rz_um": float(rz)}
+    rz = ra_scalar * 4.0
+    return {"Ra_um": ra, "Rz_um": rz}
 
 
 def ra_to_rz(ra_um: float) -> float:

@@ -1,8 +1,5 @@
-"""Process capability database (YAML) for the tolerance_advisor helpers.
-
-This file replaces the previous JSON manifest. It is intended to be
-human-editable and may include comments.
-"""
+# Process capability database for the tolerance_advisor helpers.
+# Human-editable YAML — add or extend process entries here.
 
 CNC_turning:
   typical_it_grade: "IT8"

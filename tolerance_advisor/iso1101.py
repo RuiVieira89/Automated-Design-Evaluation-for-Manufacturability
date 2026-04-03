@@ -35,7 +35,12 @@ def propose_geometric_tolerance(
     if base is None:
         raise ValueError(f"Unsupported geometric symbol: {symbol}")
     entry = choose_process_entry(process, process_db)
-    it = entry.get("typical_it_grade", 8)
+    it_raw = entry.get("typical_it_grade", "IT8")
+    # typical_it_grade may be stored as "IT8" (str) or 8 (int)
+    if isinstance(it_raw, str):
+        it = int(it_raw.upper().lstrip("IT") or 8)
+    else:
+        it = int(it_raw)
     # heuristic: better IT grades -> tighter geometric tolerances
     it_modifier = max(0.5, 12.0 / max(1.0, float(it)))
     tolerance_mm = feature_size_mm * base * it_modifier

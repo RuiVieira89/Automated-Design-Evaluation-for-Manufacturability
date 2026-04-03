@@ -45,7 +45,12 @@ def propose_general_tolerance(nominal_mm: float, process: str, process_db: Dict[
     """
     entry = choose_process_entry(process, process_db)
     # pick a suggested class based on typical IT-like grade in process db
-    it = entry.get("typical_it_grade", 8)
+    it_raw = entry.get("typical_it_grade", "IT8")
+    # typical_it_grade may be stored as "IT8" (str) or 8 (int)
+    if isinstance(it_raw, str):
+        it = int(it_raw.upper().lstrip("IT") or 8)
+    else:
+        it = int(it_raw)
     # heuristic: lower IT -> finer ISO2768 class
     if it <= 6:
         cls = "f"
