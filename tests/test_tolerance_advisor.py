@@ -1,10 +1,31 @@
+import sys
+from pathlib import Path
+
+# Make the repository root importable when running this file directly with
+# plain `python tests/test_tolerance_advisor.py` so `tolerance_advisor` can be
+# imported without requiring pytest to manage sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from tolerance_advisor.iso286 import propose_tolerance
-from tolerance_advisor.helpers import load_process_capabilities
+
+
+# In tests we prefer a small in-memory sample database to avoid requiring
+# PyYAML or file-system access. This mirrors the entries in
+# `tolerance_advisor/process_capabilities.yaml` used by the package.
+SAMPLE_DB = {
+    "CNC_turning": {
+        "typical_it_grade": "IT8",
+        "iso_it_grades": ["IT6", "IT7", "IT8", "IT9"],
+        "surface_roughness_ra_um": [0.8, 1.6, 3.2],
+        "min_feature_size_mm": 0.5,
+        "applicable_materials": ["steel", "aluminium", "brass", "titanium"],
+        "dimensional_range_mm": [1, 500],
+    }
+}
 
 
 def load_sample_db():
-    # Use the package helper which will prefer YAML and fall back to JSON.
-    return load_process_capabilities()
+    return SAMPLE_DB
 
 
 def test_propose_tolerance_happy_path():
