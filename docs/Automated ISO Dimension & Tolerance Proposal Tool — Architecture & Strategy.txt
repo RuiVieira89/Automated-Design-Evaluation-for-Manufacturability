@@ -1,0 +1,185 @@
+# Existing Tools for Process-Based ISO Tolerance Automation
+
+Great question. After researching what's actually available, the short answer is: **the pieces exist, but no single open-source tool does the full "process → ISO tolerance proposal" workflow end-to-end.** Here's a detailed landscape assessment.
+
+---
+
+## 1. What Already Exists in Open Source
+
+### 1.1 FreeCAD — Hole/Shaft Fit Tool (ISO 286, built-in)
+
+This is the **closest existing implementation** to what we discussed. FreeCAD's TechDraw workbench includes a complete `ISO286` class with full lookup tables for IT grades 6–11 and fundamental deviations for fields c through s (shafts) and D through S (holes).
+
+```python name=src/Mod/TechDraw/TechDrawTools/TaskHoleShaftFit.py url=https://github.com/FreeCAD/FreeCAD/blob/acd690d484f5f7db8ea40a5807919b8843a0a892/src/Mod/TechDraw/TechDrawTools/TaskHoleShaftFit.py#L39-L82
+class TaskHoleShaftFit:
+    def __init__(self, sel):
+        loose = translate("TechDraw_HoleShaftFit", "Loose fit")
+        snug = translate("TechDraw_HoleShaftFit", "Snug fit")
+        press = translate("TechDraw_HoleShaftFit", "Press fit")
+        self.isHole = True
+        self.sel = sel
+        self.holeValues = [
+            ["h9", "D10", loose],
+            ["h9", "E9", loose],
+            ["h9", "F8", loose],
+            ["h6", "G7", loose],
+            ["c11", "H11", loose],
+            ["f7", "H8", loose],
+            ["h6", "H7", loose],
+            ["h7", "H8", loose],
+            ["k6", "H7", snug],
+            ["n6", "H7", snug],
+            ["r6", "H7", press],
+            ["s6", "H7", press],
+            ...
+        ]
+```
+
+The core calculation engine:
+
+```python name=src/Mod/TechDraw/TechDrawTools/TaskHoleShaftFit.py url=https://github.com/FreeCAD/FreeCAD/blob/acd690d484f5f7db8ea40a5807919b8843a0a892/src/Mod/TechDraw/TechDrawTools/TaskHoleShaftFit.py#L866-L877
+    def calculate(self, value, fieldChar, quality):
+        """calculate upper and lower field values"""
+        self.nominalRange = self.getNominalRange(value)
+        self.upperValue = self.getFieldValue(fieldChar, self.nominalRange)
+        self.lowerValue = self.upperValue - self.getITValue(quality, self.nominalRange)
+        if fieldChar == "H":
+            self.upperValue = -self.lowerValue
+            self.lowerValue = 0
+
+    def getValues(self):
+        """return range values in mm"""
+        return (self.upperValue / 1000, self.lowerValue / 1000)
+```
+
+**What it does well:**
+- Full ISO 286 deviation tables encoded (fields c–s for shafts, D–S for holes)
+- IT grades 6–11 with all 25 nominal size ranges (0–500 mm)
+- Integrated directly into TechDraw dimensions — select a dimension, pick a fit, tolerances are applied to the drawing
+- Pre-configured preferred fits (H7/h6, H7/k6, H7/s6, etc.) categorized as loose/snug/press
+
+**What it does NOT do:**
+- ❌ No process awareness — it doesn't know you're CNC turning vs. grinding
+- ❌ No automatic proposal — the engineer must manually select the fit designation
+- ❌ No surface roughness guidance
+- ❌ No ISO 2768 general tolerances
+- ❌ No tolerance stack-up analysis
+- ❌ No cost/manufacturability feedback
+- ❌ Only IT6–IT11 (missing IT01–IT5 for precision work and IT12–IT18 for casting/forging)
+
+### 1.2 Other Open-Source Projects Found
+
+| Project | What It Does | Limitations |
+|---|---|---|
+| [**weiniuyun/fit-calculator**](https://github.com/weiniuyun/fit-calculator) | Web-based ISO 286 fit calculator (HTML) | Pure lookup tool, no process linkage, minimal community (1 star) |
+| **CadQuery / build123d** | Programmatic CAD (Python), can model parts | No tolerance engine at all — purely geometry |
+| **pythonocc-core** | Python wrapper for Open CASCADE (STEP parsing, BREP) | Geometry kernel only, no tolerance/standards logic |
+| **OpenMDAO** | Multidisciplinary optimization framework (NASA) | Can optimize tolerances as part of system design, but no ISO tables built in |
+| **FreeCAD PartDesign Hole feature** | ISO metric thread tolerances (ISO 965-1) | Thread-specific only, not general dimensional tolerances |
+
+### 1.3 Summary: The Open-Source Gap
+
+```
+What your tool needs:           What exists today (open source):
+─────────────────────────────   ─────────────────────────────────
+Process → IT grade mapping      ❌ Nothing
+ISO 286 lookup + calculation    ✅ FreeCAD TechDraw (IT6–IT11)
+ISO 2768 general tolerances     ❌ Nothing
+Surface roughness per process   ❌ Nothing
+Fit recommendation from function ⚠️ FreeCAD (manual pick from list)
+Tolerance stack-up              ❌ Nothing (commercial only)
+Feature recognition from CAD    ❌ Nothing integrated
+Cost-tolerance trade-off        ❌ Nothing
+```
+
+---
+
+## 2. What Exists in Commercial Software
+
+To calibrate expectations, here's what paid tools offer (and where the bar is set):
+
+| Tool | Vendor | What It Does | Price Range |
+|---|---|---|---|
+| **CETOL 6σ** | Sigmetrix | Tolerance stack-up analysis, 3D, integrates with SolidWorks/Creo/NX | ~$15k–30k/yr |
+| **3DCS Variation Analyst** | Dimensional Control Systems | Monte Carlo tolerance simulation, assembly variation | ~$20k–40k/yr |
+| **VisVSA** | Siemens (Tecnomatix) | Variation simulation in NX environment | Enterprise pricing |
+| **GD&T Advisor** | Sigmetrix | Guides GD&T application based on function | ~$5k–15k/yr |
+| **DFMPro** | HCL (Geometric) | Design-for-manufacturing checks including tolerance feasibility | ~$5k–15k/yr |
+| **Tolerance Stackup Software** | Various | Worst-case and RSS stack-up calculators | $500–$5k |
+| **SolidWorks TolAnalyst** | Dassault | Basic 1D tolerance stack-up in SolidWorks | Included in premium |
+
+**Key observation:** Even the commercial tools generally don't do **automatic process→tolerance proposal**. They help you *analyze* tolerances you've already assigned, or they *check* manufacturability after the fact. The "propose based on process" workflow is largely an **unoccupied niche**, even commercially.
+
+DFMPro comes closest — it flags features that are hard to manufacture and suggests corrections — but it works as a checker, not as a proactive tolerance advisor at the point of dimensioning.
+
+---
+
+## 3. What Exists in Research (Emerging, Not Deployed)
+
+| Research Area | State | Representative Work |
+|---|---|---|
+| **ML-based tolerance allocation** | Academic papers, not productized | Optimization of tolerance allocation to minimize cost while meeting assembly requirements (genetic algorithms, neural networks as surrogate models) |
+| **CAD feature recognition** | Maturing (FeatureNet, UV-Net, BRepNet) | Deep learning on B-Rep / mesh geometry to classify manufacturing features — could feed into tolerance suggestion |
+| **Process-tolerance knowledge graphs** | Early research | Encoding manufacturing process capability as a knowledge graph for reasoning |
+| **LLM-assisted engineering** | Experimental | Using large language models to interpret functional requirements and suggest specifications — promising for the NLP interface but not reliable enough for safety-critical tolerance decisions |
+
+---
+
+## 4. Realistic Assessment: What You'd Be Building
+
+Given this landscape, your tool would be **genuinely novel** in open source. Here's where it sits:
+
+```
+                        Manual          Automated         Intelligent
+                        Lookup          Proposal          Optimization
+                        ─────           ─────────         ────────────
+ISO 286 calculation:    FreeCAD ✅      YOUR TOOL         (future ML)
+Process capability:     Textbooks       YOUR TOOL         (future ML)
+Fit recommendation:     FreeCAD ✅      YOUR TOOL         (future ML)
+ISO 2768 assignment:    Manual          YOUR TOOL         —
+Tolerance stack-up:     Spreadsheets    (commercial)      CETOL/3DCS
+GD&T application:       Manual          (commercial)      GD&T Advisor
+DFM checking:           Manual          (commercial)      DFMPro
+```
+
+**Your tool fills the center column** — the automation of what is currently a manual lookup process, specifically bridging `process selection → ISO-correct tolerance proposal`. This is where **no open-source tool exists today**.
+
+---
+
+## 5. Concrete Recommendation: Build on FreeCAD's Foundation
+
+Rather than building from scratch, **extend FreeCAD's existing ISO 286 engine** and add the missing layers:
+
+### What to reuse from FreeCAD:
+- The `ISO286` class (deviation tables, IT grade tables, calculation logic)
+- The TechDraw integration pattern (select dimension → apply tolerance)
+- The existing UI framework (PySide2/Qt task panels)
+
+### What to build new:
+
+| Layer | Effort | Value |
+|---|---|---|
+| **Process-capability database** (YAML/JSON) mapping process → IT grades, Ra | 1–2 weeks | Core differentiation |
+| **Extend IT range** to IT01–IT18 (FreeCAD only has IT6–11) | 1 week | Covers casting, forging, precision grinding |
+| **ISO 2768 general tolerance module** | 1 week | Huge time saver for non-critical dims |
+| **Process-aware proposal dialog** (select process → get suggested fit) | 2 weeks | The key UX innovation |
+| **Standalone web UI** (Streamlit) for non-FreeCAD users | 1–2 weeks | Widens adoption |
+
+### Why this is better than starting from zero:
+1. FreeCAD's `ISO286` class is **tested and battle-hardened** — the deviation tables are correct (verified against the standard)
+2. You inherit the CAD integration path immediately
+3. The FreeCAD community (~30k GitHub stars, active development) provides a distribution channel
+4. Contributing back as a FreeCAD workbench/addon gives you visibility and contributors
+
+### What to NOT build (yet):
+- Automatic feature recognition from STEP — complex, needs training data, not needed for MVP
+- ML-based tolerance recommender — you need historical data first, which you don't have until the tool is used
+- Full GD&T advisor — enormous scope, separate project
+
+---
+
+## 6. Bottom Line
+
+**No open-source tool currently does what you described** — automatic ISO tolerance proposal based on manufacturing process. FreeCAD has the best foundation (ISO 286 calculation + CAD integration), but it stops at manual fit selection. The commercial world has DFM checkers and tolerance analyzers, but even they don't do proactive process-based proposal.
+
+**Your best path:** Build the process-capability knowledge layer as a standalone Python library, then deliver it through two channels simultaneously — a FreeCAD addon for CAD-integrated use, and a Streamlit web app for standalone access. Start with the rule engine (which is the entire value proposition for the MVP), and add ML only once you have usage data to learn from.
