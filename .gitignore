@@ -85,3 +85,5 @@ coverage.xml
 *.docx#
 
 .vscode
+
+activate_env.sh

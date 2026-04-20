@@ -87,12 +87,13 @@ def demo_iso286() -> None:
     _row("  Tolerance (±)", f"{bore_result['tolerance_mm'] * 1000:.3f} µm  "
                              f"({bore_result['tolerance_mm']:.6f} mm)")
 
-    # Compare individual IT grades for the shaft diameter
+    # Full ISO 286-1 grade table for the shaft diameter
     print()
-    print("  ISO 286 tolerance vs IT grade (Ø 25 mm)")
-    for grade in ["IT5", "IT6", "IT7", "IT8", "IT9", "IT10", "IT11"]:
+    print("  ISO 286-1 full grade table (Ø 25 mm, IT01–IT18)")
+    all_grades = ["IT01", "IT0"] + [f"IT{n}" for n in range(1, 19)]
+    for grade in all_grades:
         tol = fundamental_tolerance(SHAFT_DIAMETER_MM, grade)
-        _row(f"    {grade}", f"{tol * 1000:>7.3f} µm")
+        _row(f"    {grade}", f"{tol * 1000:>9.3f} µm  ({tol:.6f} mm)")
 
 
 # ---------------------------------------------------------------------------
