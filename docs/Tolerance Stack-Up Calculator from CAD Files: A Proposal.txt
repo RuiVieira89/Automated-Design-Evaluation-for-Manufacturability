@@ -1,0 +1,824 @@
+
+
+# Tolerance Stack-Up Calculator from CAD Files: A Proposal
+
+## 1. Problem Statement
+
+Tolerance stack-up analysis is one of the most error-prone and time-consuming tasks in mechanical engineering. Engineers typically:
+- Manually identify dimension chains from 2D drawings or 3D models
+- Build spreadsheets for worst-case (WC) and statistical (RSS) analysis
+- Iterate when designs change, often losing traceability
+- Miss critical stack-ups until assembly failures occur
+
+**The goal:** A tool that ingests CAD files (STEP, IGES, or native formats), identifies geometric relationships, and semi-automatically constructs tolerance stack-up chains with quantified results.
+
+---
+
+## 2. System Architecture
+
+```text name=architecture_overview.txt
+┌─────────────────────────────────────────────────────────────┐
+│                     USER INTERFACE                          │
+│  Select assembly ─► Define critical dimensions ─► Review    │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+         ┌───────────────▼───────────────┐
+         │      CAD IMPORT & PARSING     │
+         │  STEP AP214/AP242 ─► B-Rep    │
+         │  PMI / GD&T extraction        │
+         │  Assembly mate/constraint tree │
+         └───────────────┬───────────────┘
+                         │
+         ┌───────────────▼───────────────┐
+         │   DIMENSION CHAIN BUILDER     │
+         │  Graph model of part contacts │
+         │  Loop identification (1D/2D)  │
+         │  Direction & sign convention  │
+         └───────────────┬───────────────┘
+                         │
+         ┌───────────────▼───────────────┐
+         │   TOLERANCE ASSIGNMENT        │
+         │  From PMI annotations         │
+         │  From process-based defaults  │
+         │  User override interface      │
+         └───────────────┬───────────────┘
+                         │
+         ┌───────────────▼───────────────┐
+         │   STACK-UP SOLVER ENGINE      │
+         │  Worst-Case (linear)          │
+         │  RSS (statistical)            │
+         │  Monte Carlo (full dist.)     │
+         │  Sensitivity analysis         │
+         └───────────────┬───────────────┘
+                         │
+         ┌───────────────▼───────────────┐
+         │   REPORTING & FEEDBACK        │
+         │  Visual loop overlay on CAD   │
+         │  Contributor breakdown charts │
+         │  Pass/fail against spec       │
+         │  Design change suggestions    │
+         └──────────────────────────────-┘
+```
+
+---
+
+## 3. Module-by-Module Breakdown
+
+### 3.1 CAD Import & Parsing
+
+| Capability | Approach | Technology |
+|---|---|---|
+| Geometry import | STEP AP242 (preferred — includes PMI) | `OpenCascade (OCCT)` / `PythonOCC` / `CADQuery` |
+| B-Rep traversal | Extract faces, edges, datum planes | OCCT topology API |
+| Assembly structure | Part-to-part relationships, mate connectors | Parse STEP assembly graph or XCAF |
+| PMI/GD&T | Semantic tolerances embedded in STEP | AP242 PMI entities; fallback: manual entry |
+
+**Key point:** STEP AP242 is the only neutral format that carries tolerancing data. If the source CAD is AP214 or IGES, tolerances must be assigned manually or inferred from process defaults.
+
+```python name=cad_parser.py
+"""
+Core CAD import module — extracts assembly graph and geometry
+from STEP files using PythonOCC (OpenCascade wrapper).
+"""
+from OCP.STEPControl import STEPControl_Reader
+from OCP.TopExp import TopExp_Explorer
+from OCP.TopAbs import TopAbs_FACE, TopAbs_SOLID
+from OCP.BRep import BRep_Tool
+from OCP.XCAFDoc import XCAFDoc_ShapeTool, XCAFDoc_DimTolTool
+from OCP.TDocStd import TDocStd_Document
+from OCP.XSControl import XSControl_WorkSession
+from OCP.STEPCAFControl import STEPCAFControl_Reader
+from dataclasses import dataclass, field
+from typing import Optional
+import numpy as np
+
+
+@dataclass
+class TolerancedFeature:
+    """A geometric feature with associated tolerance information."""
+    part_name: str
+    feature_id: str
+    feature_type: str          # "planar_face", "cylindrical", "datum", ...
+    nominal_dimension: float   # mm
+    tolerance_plus: float      # mm
+    tolerance_minus: float     # mm
+    normal_vector: np.ndarray  # direction in assembly coords
+    origin_point: np.ndarray   # reference point in assembly coords
+    distribution: str = "normal"  # "normal", "uniform", "triangular"
+    cpk: Optional[float] = None
+
+
+@dataclass
+class AssemblyContact:
+    """Represents a mating interface between two parts."""
+    part_a: str
+    feature_a: str
+    part_b: str
+    feature_b: str
+    contact_type: str  # "planar", "cylindrical_fit", "fastener_clearance"
+    gap_nominal: float = 0.0
+    gap_tolerance_plus: float = 0.0
+    gap_tolerance_minus: float = 0.0
+
+
+class CADAssemblyParser:
+    """
+    Parses a STEP AP242 file and extracts:
+      - Part hierarchy and transforms
+      - Mating face pairs (assembly contacts)
+      - PMI tolerance annotations (if present)
+    """
+
+    def __init__(self, step_filepath: str):
+        self.filepath = step_filepath
+        self.parts: dict[str, list[TolerancedFeature]] = {}
+        self.contacts: list[AssemblyContact] = []
+        self._doc = TDocStd_Document("MDTV-XCAF")
+
+    def load(self) -> bool:
+        """Load STEP file with extended (XCAF) data for PMI."""
+        reader = STEPCAFControl_Reader()
+        reader.SetNameMode(True)
+        reader.SetGDTMode(True)   # Enable GD&T / PMI import
+        status = reader.ReadFile(self.filepath)
+        if status != 1:  # IFSelect_RetDone
+            raise IOError(f"Failed to read STEP file: {self.filepath}")
+        reader.Transfer(self._doc)
+        return True
+
+    def extract_parts(self) -> dict[str, list[TolerancedFeature]]:
+        """
+        Walk the assembly tree and extract faces with
+        their geometric properties as candidate toleranced features.
+        """
+        shape_tool = XCAFDoc_ShapeTool.Set(self._doc.Main())
+        labels = shape_tool.GetFreeShapes()
+
+        for i in range(labels.Length()):
+            label = labels.Value(i + 1)
+            self._process_shape_label(shape_tool, label)
+
+        return self.parts
+
+    def extract_pmi_tolerances(self) -> None:
+        """
+        Extract GD&T / PMI annotations from AP242 and
+        attach them to the corresponding TolerancedFeature objects.
+        """
+        dimtol_tool = XCAFDoc_DimTolTool.Set(self._doc.Main())
+        # ... iterate over dimension/tolerance annotations
+        # ... match to features by referenced geometry
+        # (Implementation depends on OCCT version and PMI fidelity)
+        pass
+
+    def identify_contacts(self) -> list[AssemblyContact]:
+        """
+        Identify mating face pairs by proximity analysis:
+        faces from different parts whose distance < threshold
+        are candidate assembly contacts.
+        """
+        # Pairwise face distance check between parts
+        # Classify contact type by face geometry
+        # (planar-planar, cyl-cyl, etc.)
+        # ...
+        return self.contacts
+
+    def _process_shape_label(self, shape_tool, label, depth=0):
+        """Recursively walk the assembly tree."""
+        name = self._get_label_name(label)
+        shape = shape_tool.GetShape(label)
+
+        if shape_tool.IsAssembly(label):
+            components = shape_tool.GetComponents(label)
+            for j in range(components.Length()):
+                self._process_shape_label(
+                    shape_tool, components.Value(j + 1), depth + 1
+                )
+        else:
+            features = self._extract_face_features(shape, name)
+            self.parts[name] = features
+
+    def _extract_face_features(
+        self, shape, part_name: str
+    ) -> list[TolerancedFeature]:
+        """Extract planar and cylindrical faces as candidate features."""
+        features = []
+        explorer = TopExp_Explorer(shape, TopAbs_FACE)
+        idx = 0
+        while explorer.More():
+            face = explorer.Current()
+            surface = BRep_Tool.Surface_s(face)
+            # Classify face type, extract normal, origin, dimensions
+            # ... (geometry interrogation logic)
+            features.append(TolerancedFeature(
+                part_name=part_name,
+                feature_id=f"{part_name}_face_{idx}",
+                feature_type="planar_face",  # or detect cylindrical
+                nominal_dimension=0.0,       # populated later
+                tolerance_plus=0.0,
+                tolerance_minus=0.0,
+                normal_vector=np.array([0, 0, 1]),
+                origin_point=np.array([0, 0, 0]),
+            ))
+            idx += 1
+            explorer.Next()
+        return features
+
+    @staticmethod
+    def _get_label_name(label) -> str:
+        """Retrieve the user-defined name from an XCAF label."""
+        # ... extract from TDataStd_Name attribute
+        return "unnamed"
+```
+
+### 3.2 Dimension Chain Builder (Graph Model)
+
+This is the **core algorithmic challenge**. The assembly is modelled as a directed graph:
+
+- **Nodes** = part features (faces, axes, datums)
+- **Edges** = internal part dimensions (within a part) or external contacts (between parts)
+
+Finding a stack-up loop = finding a **path** from one side of a critical gap/clearance to the other, through the chain of contributing dimensions.
+
+```python name=stack_up_graph.py
+"""
+Builds a graph representation of the assembly dimension chain
+and identifies tolerance stack-up loops.
+"""
+import networkx as nx
+import numpy as np
+from dataclasses import dataclass, field
+from typing import Optional
+from enum import Enum
+
+
+class ContributorType(Enum):
+    INTERNAL = "internal"   # dimension within a single part
+    CONTACT = "contact"     # interface between two parts
+    GAP = "gap"             # the critical clearance/gap being analyzed
+
+
+@dataclass
+class DimensionContributor:
+    """One contributor in a tolerance stack-up chain."""
+    name: str
+    contributor_type: ContributorType
+    nominal: float           # mm, signed (+/- per direction convention)
+    tol_plus: float          # mm, always positive
+    tol_minus: float         # mm, always positive (magnitude)
+    distribution: str = "normal"
+    sensitivity: float = 1.0  # partial derivative / direction cosine
+    part_name: str = ""
+    description: str = ""
+
+
+@dataclass
+class StackUpResult:
+    """Result of a tolerance stack-up calculation."""
+    gap_name: str
+    nominal_gap: float
+    worst_case_min: float
+    worst_case_max: float
+    rss_min: float
+    rss_max: float
+    monte_carlo_mean: Optional[float] = None
+    monte_carlo_std: Optional[float] = None
+    monte_carlo_yield: Optional[float] = None  # % within spec
+    contributors: list[DimensionContributor] = field(default_factory=list)
+    sensitivity_ranking: list[tuple[str, float]] = field(default_factory=list)
+
+
+class ToleranceStackUpGraph:
+    """
+    Models an assembly as a graph where nodes are geometric features
+    and edges are dimensional contributors (internal or contact).
+
+    The user selects two features defining a critical gap;
+    the graph finds the shortest loop and computes the stack-up.
+    """
+
+    def __init__(self):
+        self.graph = nx.DiGraph()
+
+    # ── Graph Construction ──────────────────────────────────────
+
+    def add_internal_dimension(
+        self,
+        part_name: str,
+        feature_a_id: str,
+        feature_b_id: str,
+        nominal: float,
+        tol_plus: float,
+        tol_minus: float,
+        direction_vector: np.ndarray,
+        description: str = "",
+    ):
+        """
+        Add a dimension between two features on the SAME part.
+        Nominal is signed: positive in the stack-up direction.
+        """
+        self.graph.add_edge(
+            feature_a_id, feature_b_id,
+            contributor=DimensionContributor(
+                name=f"{part_name}: {feature_a_id} → {feature_b_id}",
+                contributor_type=ContributorType.INTERNAL,
+                nominal=nominal,
+                tol_plus=tol_plus,
+                tol_minus=tol_minus,
+                part_name=part_name,
+                description=description,
+            ),
+            direction=direction_vector,
+        )
+
+    def add_assembly_contact(
+        self,
+        part_a_feature: str,
+        part_b_feature: str,
+        gap_nominal: float = 0.0,
+        tol_plus: float = 0.0,
+        tol_minus: float = 0.0,
+        contact_type: str = "rigid",
+    ):
+        """
+        Add an edge between features on DIFFERENT parts
+        that are in contact at assembly.
+        """
+        self.graph.add_edge(
+            part_a_feature, part_b_feature,
+            contributor=DimensionContributor(
+                name=f"Contact: {part_a_feature} ↔ {part_b_feature}",
+                contributor_type=ContributorType.CONTACT,
+                nominal=gap_nominal,
+                tol_plus=tol_plus,
+                tol_minus=tol_minus,
+                description=contact_type,
+            ),
+        )
+
+    # ── Loop Identification ─────────────────────────────────────
+
+    def find_stack_up_chain(
+        self, start_feature: str, end_feature: str
+    ) -> list[DimensionContributor]:
+        """
+        Find the dimension chain (shortest path) between two features
+        that define the critical gap or clearance.
+
+        Returns ordered list of contributors from start to end.
+        """
+        try:
+            path = nx.shortest_path(
+                self.graph, source=start_feature, target=end_feature
+            )
+        except nx.NetworkXNoPath:
+            raise ValueError(
+                f"No connected dimension chain found between "
+                f"'{start_feature}' and '{end_feature}'. "
+                f"Check that all intermediate contacts are defined."
+            )
+
+        contributors = []
+        for i in range(len(path) - 1):
+            edge_data = self.graph.edges[path[i], path[i + 1]]
+            contributors.append(edge_data["contributor"])
+
+        return contributors
+
+    # ── Stack-Up Solvers ────────────────────────────────────────
+
+    def compute_stack_up(
+        self,
+        start_feature: str,
+        end_feature: str,
+        gap_spec_min: float = None,
+        gap_spec_max: float = None,
+        monte_carlo_iterations: int = 100_000,
+    ) -> StackUpResult:
+        """
+        Full stack-up analysis: worst-case, RSS, and Monte Carlo.
+        """
+        contributors = self.find_stack_up_chain(start_feature, end_feature)
+
+        # ── Nominal gap ──
+        nominal_gap = sum(c.nominal * c.sensitivity for c in contributors)
+
+        # ── Worst-Case ──
+        wc_tol_upper = sum(
+            max(c.tol_plus, c.tol_minus) * abs(c.sensitivity)
+            for c in contributors
+        )
+        wc_min = nominal_gap - wc_tol_upper
+        wc_max = nominal_gap + wc_tol_upper
+
+        # ── RSS (Root Sum of Squares) ──
+        # Assumes symmetric, normal distributions centered on nominal
+        rss_tol = np.sqrt(sum(
+            (((c.tol_plus + c.tol_minus) / 2) * c.sensitivity) ** 2
+            for c in contributors
+        ))
+        rss_min = nominal_gap - 3 * rss_tol  # 3σ limits
+        rss_max = nominal_gap + 3 * rss_tol
+
+        # ── Monte Carlo ──
+        mc_result = self._monte_carlo(
+            contributors, monte_carlo_iterations,
+            gap_spec_min, gap_spec_max,
+        )
+
+        # ── Sensitivity Ranking ──
+        sensitivity = self._sensitivity_analysis(contributors)
+
+        return StackUpResult(
+            gap_name=f"{start_feature} → {end_feature}",
+            nominal_gap=nominal_gap,
+            worst_case_min=wc_min,
+            worst_case_max=wc_max,
+            rss_min=rss_min,
+            rss_max=rss_max,
+            monte_carlo_mean=mc_result["mean"],
+            monte_carlo_std=mc_result["std"],
+            monte_carlo_yield=mc_result["yield_pct"],
+            contributors=contributors,
+            sensitivity_ranking=sensitivity,
+        )
+
+    def _monte_carlo(
+        self,
+        contributors: list[DimensionContributor],
+        n_iterations: int,
+        spec_min: float = None,
+        spec_max: float = None,
+    ) -> dict:
+        """
+        Monte Carlo simulation of the stack-up.
+        Each contributor is sampled from its specified distribution.
+        """
+        rng = np.random.default_rng(seed=42)
+        samples = np.zeros(n_iterations)
+
+        for c in contributors:
+            midpoint = c.nominal + (c.tol_plus - c.tol_minus) / 2
+            half_range = (c.tol_plus + c.tol_minus) / 2
+
+            if c.distribution == "normal":
+                # 3σ = half_range → σ = half_range / 3
+                sigma = half_range / 3 if half_range > 0 else 1e-9
+                dim_samples = rng.normal(loc=midpoint, scale=sigma,
+                                         size=n_iterations)
+            elif c.distribution == "uniform":
+                dim_samples = rng.uniform(
+                    low=midpoint - half_range,
+                    high=midpoint + half_range,
+                    size=n_iterations,
+                )
+            else:  # default to normal
+                sigma = half_range / 3 if half_range > 0 else 1e-9
+                dim_samples = rng.normal(loc=midpoint, scale=sigma,
+                                         size=n_iterations)
+
+            samples += dim_samples * c.sensitivity
+
+        # Yield calculation
+        yield_pct = 100.0
+        if spec_min is not None and spec_max is not None:
+            in_spec = np.sum((samples >= spec_min) & (samples <= spec_max))
+            yield_pct = (in_spec / n_iterations) * 100.0
+
+        return {
+            "mean": float(np.mean(samples)),
+            "std": float(np.std(samples)),
+            "yield_pct": yield_pct,
+            "histogram": samples,  # for plotting
+        }
+
+    @staticmethod
+    def _sensitivity_analysis(
+        contributors: list[DimensionContributor],
+    ) -> list[tuple[str, float]]:
+        """
+        Rank contributors by their variance contribution (%).
+        Tells the engineer WHERE to tighten tolerances for most effect.
+        """
+        variances = []
+        for c in contributors:
+            half_range = (c.tol_plus + c.tol_minus) / 2
+            sigma = half_range / 3
+            var = (sigma * c.sensitivity) ** 2
+            variances.append((c.name, var))
+
+        total_var = sum(v for _, v in variances)
+        if total_var == 0:
+            return [(name, 0.0) for name, _ in variances]
+
+        ranked = [
+            (name, (var / total_var) * 100)
+            for name, var in variances
+        ]
+        ranked.sort(key=lambda x: x[1], reverse=True)
+        return ranked
+```
+
+### 3.3 Tolerance Assignment Module
+
+When PMI data is absent (common in practice), tolerances must come from somewhere:
+
+```python name=tolerance_defaults.py
+"""
+Process-based default tolerances.
+Used when CAD PMI annotations are missing.
+
+Sources:
+  - Machinery's Handbook (31st ed.)
+  - ISO 2768-1 (General tolerances for linear dimensions)
+"""
+from dataclasses import dataclass
+from enum import Enum
+
+
+class ISO2768Class(Enum):
+    FINE = "f"
+    MEDIUM = "m"
+    COARSE = "c"
+    VERY_COARSE = "v"
+
+
+# ISO 2768-1 Table: tolerance in mm for linear dimensions
+# Key: (class, (min_dim_exclusive, max_dim_inclusive))
+ISO_2768_LINEAR: dict[ISO2768Class, dict[tuple[float, float], float]] = {
+    ISO2768Class.FINE: {
+        (0.5, 3): 0.05,   (3, 6): 0.05,    (6, 30): 0.10,
+        (30, 120): 0.15,   (120, 400): 0.20, (400, 1000): 0.30,
+        (1000, 2000): 0.50,
+    },
+    ISO2768Class.MEDIUM: {
+        (0.5, 3): 0.10,   (3, 6): 0.10,    (6, 30): 0.20,
+        (30, 120): 0.30,   (120, 400): 0.50, (400, 1000): 0.80,
+        (1000, 2000): 1.20,
+    },
+    ISO2768Class.COARSE: {
+        (0.5, 3): 0.20,   (3, 6): 0.30,    (6, 30): 0.50,
+        (30, 120): 0.80,   (120, 400): 1.20, (400, 1000): 2.00,
+        (1000, 2000): 3.00,
+    },
+    ISO2768Class.VERY_COARSE: {
+        (0.5, 3): 0.50,   (3, 6): 0.50,    (6, 30): 1.00,
+        (30, 120): 1.50,   (120, 400): 2.50, (400, 1000): 4.00,
+        (1000, 2000): 6.00,
+    },
+}
+
+
+# Process capability defaults (± tolerance for given process + dim range)
+PROCESS_DEFAULTS: dict[str, dict[tuple[float, float], float]] = {
+    "CNC_milling": {
+        (0, 25): 0.025,  (25, 100): 0.038,  (100, 500): 0.075,
+    },
+    "CNC_turning": {
+        (0, 25): 0.013,  (25, 100): 0.025,  (100, 500): 0.050,
+    },
+    "injection_molding": {
+        (0, 25): 0.10,   (25, 100): 0.15,   (100, 300): 0.25,
+    },
+    "sheet_metal_bending": {
+        (0, 50): 0.25,   (50, 200): 0.40,   (200, 1000): 0.80,
+    },
+    "die_casting": {
+        (0, 25): 0.10,   (25, 100): 0.20,   (100, 500): 0.40,
+    },
+    "FDM_3D_print": {
+        (0, 50): 0.20,   (50, 200): 0.40,   (200, 500): 0.80,
+    },
+    "SLS_3D_print": {
+        (0, 50): 0.15,   (50, 200): 0.30,   (200, 500): 0.60,
+    },
+}
+
+
+def get_iso2768_tolerance(
+    nominal_dim: float,
+    tolerance_class: ISO2768Class = ISO2768Class.MEDIUM,
+) -> float:
+    """Return ± tolerance (mm) per ISO 2768-1 for a given dimension."""
+    table = ISO_2768_LINEAR[tolerance_class]
+    for (lo, hi), tol in table.items():
+        if lo < nominal_dim <= hi:
+            return tol
+    raise ValueError(
+        f"Dimension {nominal_dim} mm out of ISO 2768-1 range "
+        f"for class {tolerance_class.value}"
+    )
+
+
+def get_process_tolerance(
+    nominal_dim: float,
+    process: str = "CNC_milling",
+) -> float:
+    """Return ± tolerance (mm) for a manufacturing process."""
+    if process not in PROCESS_DEFAULTS:
+        raise ValueError(
+            f"Unknown process '{process}'. "
+            f"Available: {list(PROCESS_DEFAULTS.keys())}"
+        )
+    table = PROCESS_DEFAULTS[process]
+    for (lo, hi), tol in table.items():
+        if lo < nominal_dim <= hi:
+            return tol
+    raise ValueError(
+        f"Dimension {nominal_dim} mm out of range for process '{process}'"
+    )
+```
+
+### 3.4 Reporting & Visualization
+
+```python name=reporting.py
+"""
+Generates visual and tabular stack-up reports.
+"""
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
+from stack_up_graph import StackUpResult
+
+
+def generate_stack_up_report(result: StackUpResult, save_path: str = None):
+    """Create a multi-panel stack-up report figure."""
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig.suptitle(f"Tolerance Stack-Up: {result.gap_name}", fontsize=14)
+
+    # ── Panel 1: Contributor Waterfall Chart ──
+    ax1 = axes[0]
+    names = [c.name[:25] for c in result.contributors]
+    nominals = [c.nominal * c.sensitivity for c in result.contributors]
+    colors = [
+        "#2196F3" if c.contributor_type.value == "internal"
+        else "#FF9800" if c.contributor_type.value == "contact"
+        else "#4CAF50"
+        for c in result.contributors
+    ]
+    cumulative = np.cumsum(nominals)
+    starts = np.concatenate([[0], cumulative[:-1]])
+
+    ax1.barh(range(len(names)), nominals, left=starts,
+             color=colors, edgecolor="white")
+    ax1.set_yticks(range(len(names)))
+    ax1.set_yticklabels(names, fontsize=8)
+    ax1.set_xlabel("Cumulative Dimension (mm)")
+    ax1.set_title("Dimension Chain (Waterfall)")
+    ax1.axvline(x=result.nominal_gap, color="red", linestyle="--",
+                label=f"Nominal Gap: {result.nominal_gap:.3f}")
+    ax1.legend(fontsize=8)
+
+    # ── Panel 2: Monte Carlo Histogram ──
+    ax2 = axes[1]
+    if result.monte_carlo_mean is not None:
+        # Re-run MC for histogram data (or pass from result)
+        ax2.set_title("Monte Carlo Distribution")
+        ax2.set_xlabel("Gap (mm)")
+        ax2.set_ylabel("Frequency")
+        ax2.axvline(x=result.nominal_gap, color="red", linestyle="--",
+                     label="Nominal")
+        ax2.text(0.05, 0.95,
+                 f"μ = {result.monte_carlo_mean:.4f}\n"
+                 f"σ = {result.monte_carlo_std:.4f}\n"
+                 f"Yield = {result.monte_carlo_yield:.2f}%",
+                 transform=ax2.transAxes, fontsize=9,
+                 verticalalignment="top",
+                 bbox=dict(boxstyle="round", facecolor="wheat"))
+        ax2.legend(fontsize=8)
+
+    # ── Panel 3: Sensitivity Pareto ──
+    ax3 = axes[2]
+    if result.sensitivity_ranking:
+        s_names = [s[0][:25] for s in result.sensitivity_ranking]
+        s_pcts = [s[1] for s in result.sensitivity_ranking]
+        cum_pct = np.cumsum(s_pcts)
+
+        bars = ax3.barh(range(len(s_names)), s_pcts, color="#9C27B0")
+        ax3.set_yticks(range(len(s_names)))
+        ax3.set_yticklabels(s_names, fontsize=8)
+        ax3.set_xlabel("% Variance Contribution")
+        ax3.set_title("Sensitivity Pareto")
+
+        ax3_twin = ax3.twiny()
+        ax3_twin.plot(cum_pct, range(len(s_names)), "r-o", markersize=4)
+        ax3_twin.set_xlabel("Cumulative %", color="red")
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.show()
+
+
+def print_summary_table(result: StackUpResult):
+    """Print a text summary of the stack-up."""
+    print(f"\n{'='*65}")
+    print(f"  TOLERANCE STACK-UP SUMMARY: {result.gap_name}")
+    print(f"{'='*65}")
+    print(f"  {'Contributor':<35} {'Nom (mm)':>10} {'±Tol':>10}")
+    print(f"  {'-'*55}")
+
+    for c in result.contributors:
+        effective_nom = c.nominal * c.sensitivity
+        avg_tol = (c.tol_plus + c.tol_minus) / 2
+        print(f"  {c.name:<35} {effective_nom:>+10.4f} {avg_tol:>10.4f}")
+
+    print(f"  {'-'*55}")
+    print(f"  {'NOMINAL GAP':<35} {result.nominal_gap:>+10.4f}")
+    print(f"  {'WC Range':<35} [{result.worst_case_min:>+.4f}, "
+          f"{result.worst_case_max:>+.4f}]")
+    print(f"  {'RSS 3σ Range':<35} [{result.rss_min:>+.4f}, "
+          f"{result.rss_max:>+.4f}]")
+
+    if result.monte_carlo_mean is not None:
+        print(f"  {'MC Mean ± σ':<35} {result.monte_carlo_mean:>+.4f} "
+              f"± {result.monte_carlo_std:.4f}")
+        print(f"  {'MC Yield':<35} {result.monte_carlo_yield:>10.2f}%")
+
+    print(f"\n  Top contributors by variance:")
+    for name, pct in result.sensitivity_ranking[:5]:
+        print(f"    {pct:5.1f}%  {name}")
+    print(f"{'='*65}\n")
+```
+
+---
+
+## 4. Where ML Adds Value (and Where It Doesn't)
+
+This is critical: **the core stack-up math should NOT be ML-based.** Worst-case, RSS, and Monte Carlo are exact analytical/numerical methods. ML adds value in the *surrounding workflow*:
+
+| Task | Best Approach | Why |
+|---|---|---|
+| **Stack-up arithmetic** | Analytical (WC/RSS) + Monte Carlo | Exact; no training data needed |
+| **Identifying dimension chains from B-Rep** | Graph algorithms + rules | Deterministic, verifiable |
+| **Auto-detecting mating faces** | **ML (GNN or point-cloud classifier)** | Heuristic proximity checks fail on complex assemblies; a trained model generalises |
+| **Suggesting process-appropriate tolerances** | **ML (regression on historical data)** | Maps {feature type, material, process, volume} → achievable tolerance from shop floor data |
+| **Predicting assembly yield from stack-ups** | **ML (gradient-boosted model)** | Captures non-linear interactions between multiple stack-ups at once |
+| **Flagging high-risk stack-ups before analysis** | **ML (classification on past quality escapes)** | Learns from company-specific failure modes |
+| **GD&T recommendation from design intent** | **NLP/LLM + rules** | Emerging; useful for drafting, not final specification |
+| **Tolerance optimisation (cost vs. quality)** | Optimisation (genetic alg / Bayesian) | ML can provide the surrogate cost model; the optimiser is classical |
+
+---
+
+## 5. Data Requirements & Practical Constraints
+
+| Requirement | Notes |
+|---|---|
+| **CAD format** | STEP AP242 preferred. AP214, Parasolid, IGES supported with reduced PMI fidelity |
+| **Assembly structure** | Must include mate definitions or positioned components (not just a bag of parts) |
+| **GD&T annotations** | Dramatically improves automation; without them, 60-80% of effort is manual tolerance input |
+| **Training data for ML modules** | Mating face classifier: ~500+ labelled assemblies. Tolerance predictor: historical inspection data from MES/QMS |
+| **Compute** | Monte Carlo (100k iterations, 20 contributors): <1 second on a laptop. CAD parsing: 2-10 seconds per assembly |
+| **Deployment** | Desktop plugin (SolidWorks/Creo/NX API) or web app with STEP upload |
+
+---
+
+## 6. Comparison with Existing Tools
+
+| Tool | Strengths | Gaps This Tool Addresses |
+|---|---|---|
+| **CETOL 6σ** (Sigmetrix) | Gold standard; full 3D, GD&T-aware | Expensive ($$$), locked to specific CAD platforms, no ML augmentation |
+| **VSA** (Siemens) | Integrated with NX, advanced statistical | Vendor lock-in, steep learning curve |
+| **Manual spreadsheet** | Flexible, transparent | Error-prone, no CAD link, no visualisation |
+| **This proposal** | Open, CAD-agnostic (STEP), ML-augmented, scriptable, CI-integratable | Requires investment in mating-face detection and PMI parsing robustness |
+
+---
+
+## 7. Recommended Implementation Roadmap
+
+```text name=roadmap.txt
+Phase 1 (MVP, ~3 months)
+├── STEP import with PythonOCC / CadQuery
+├── Manual dimension chain entry (GUI or config file)
+├── WC + RSS + Monte Carlo solver
+├── Sensitivity Pareto + waterfall report
+└── CLI + simple web UI (Streamlit/Gradio)
+
+Phase 2 (Semi-automatic, ~3 months)
+├── Automatic mating face detection (proximity + surface classification)
+├── Process-based tolerance defaults (ISO 2768 + process DB)
+├── Parametric studies (sweep a tolerance, see yield impact)
+└── Export to PDF/Excel report
+
+Phase 3 (ML-augmented, ~6 months)
+├── GNN-based mating face classifier (trained on labelled assemblies)
+├── Tolerance prediction from shop-floor inspection data
+├── Assembly yield predictor (multi-stack-up)
+├── Integration with CAD plugins (SolidWorks API, Creo Toolkit)
+└── CI pipeline hook: run stack-up check on every CAD commit (GrabCAD / PDM)
+```
+
+---
+
+## 8. Concrete Next Step
+
+**Start with Phase 1.** Build a working CLI tool that:
+
+1. Reads a STEP file → extracts part geometry
+2. Takes a manually-defined dimension chain (JSON/YAML config)
+3. Computes WC, RSS, Monte Carlo
+4. Outputs a sensitivity report
+
+This validates the math engine and report format with real engineers before investing in the harder automation and ML layers. The `stack_up_graph.py` and `tolerance_defaults.py` modules above are functional starting points.
+
+**First test case:** A simple 4-part linear stack (e.g., shaft + 2 spacers + housing) where the critical gap is end-play. This is textbook-verifiable and proves the pipeline end-to-end.
