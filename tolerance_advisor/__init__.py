@@ -3,12 +3,18 @@
 Provides ISO tolerance calculation helpers.
 """
 
-from .iso286 import (
+from .fit_iso286 import (
     IT_MULTIPLIERS,
     geometric_mean,
     standard_tolerance_factor,
     fundamental_tolerance,
     propose_tolerance,
+    FitResult,
+    list_fit_options,
+    select_fit,
+    hole_deviations,
+    shaft_deviations,
+    evaluate_fit,
 )
 from .helpers import load_process_capabilities, find_size_range, choose_process_entry
 from .iso2768 import fundamental_tol_iso2768, propose_general_tolerance
@@ -23,6 +29,12 @@ __all__ = [
     "standard_tolerance_factor",
     "fundamental_tolerance",
     "propose_tolerance",
+    "FitResult",
+    "list_fit_options",
+    "select_fit",
+    "hole_deviations",
+    "shaft_deviations",
+    "evaluate_fit",
     "load_process_capabilities",
     "find_size_range",
     "choose_process_entry",

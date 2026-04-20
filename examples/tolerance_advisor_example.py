@@ -25,7 +25,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tolerance_advisor.helpers import load_process_capabilities
-from tolerance_advisor.iso286 import propose_tolerance, fundamental_tolerance
+from tolerance_advisor.fit_iso286 import propose_tolerance, fundamental_tolerance
 from tolerance_advisor.iso2768 import fundamental_tol_iso2768, propose_general_tolerance
 from tolerance_advisor.iso1101 import propose_geometric_tolerance
 from tolerance_advisor.iso4287_4288 import propose_surface_roughness, ra_to_rz

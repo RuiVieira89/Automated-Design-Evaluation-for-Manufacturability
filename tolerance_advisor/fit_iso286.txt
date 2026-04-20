@@ -1,0 +1,84 @@
+# ISO 286 – Geometrical Product Specifications: Limits and Fits
+
+ISO 286 is the international standard that defines how tightly or loosely two mating parts should fit together.
+
+---
+
+## What the standard gives you
+
+ISO 286 provides a complete, codified system built around a few core concepts:
+
+**Tolerance grades (IT grades)** — There are 20 standard tolerance grades, from IT01 (extremely precise) up to IT18 (very coarse). 
+
+**Fundamental deviations** — These define the *position* of the tolerance zone relative to the nominal size. 
+They are identified by letters: lowercase for shafts (a–z) and uppercase for holes (A–Z). 
+The deviation tells you how far the tolerance zone is offset from the zero line (nominal dimension).
+
+**Fit system** — Combining a fundamental deviation with a tolerance grade gives you a complete tolerance designation, for example `H7` for a hole or `k6` for a shaft. Pairing them (e.g. `H7/k6`) defines the fit between two mating parts.
+
+**Three categories of fit:**
+- **Clearance fit** — the shaft is always smaller than the hole (e.g. `H7/f7`). Used for sliding or rotating parts.
+- **Interference fit** — the shaft is always larger than the hole (e.g. `H7/p6`). Used for press fits and force-transmission joints.
+- **Transition fit** — can result in either slight clearance or slight interference (e.g. `H7/k6`). Used for accurate location with easy assembly.
+
+---
+
+## How it is used in practice
+
+Engineers apply ISO 286 directly on engineering drawings. A typical callout looks like this on a drawing:
+
+> ⌀ 50 H7 / g6
+
+This tells the machinist: nominal diameter is 50 mm, the hole shall be machined to H7 tolerance, the shaft to g6 tolerance, 
+and the resulting fit is a clearance (running/sliding) fit.
+
+The standard is used together with **ISO 286-1** (which tabulates the numerical values of tolerance grades and deviations) and 
+**ISO 286-2** (which provides tables of preferred fits for direct use). 
+
+---
+
+## When to use it
+
+ISO 286 is the right tool whenever you have **mating cylindrical features** that need to be manufactured separately and assembled together. 
+Typical situations:
+
+- **Bearings in housings** — bearing outer ring in a housing bore, or inner ring on a shaft, almost always specified with ISO 286 fits.
+- **Shafts in bores** — gearboxes, pumps, motors, any rotating machinery.
+- **Locating pins and bushings** — where precise positioning is required.
+- **Press-fit joints** — transmitting torque or axial force without fasteners.
+- **Sliding or reciprocating components** — pistons, guide rods, spigots.
+
+As a general rule: if two parts are made by different people or processes and must assemble reliably and interchangeably, 
+ISO 286 provides the framework to make that happen without individual fitting or measurement at assembly.
+
+---
+
+## Key practical takeaways
+
+- The **H/h system** is the baseline: `H` means the lower deviation of the hole is zero (hole-basis system), 
+`h` means the upper deviation of the shaft is zero (shaft-basis system). 
+The hole-basis system (`H` holes) is strongly preferred in practice because holes are harder to adjust than shafts.
+- **Prefer standard fits** from ISO 286-2 whenever possible — they are well-documented, widely understood by machinists, and tooling is optimized for them.
+- Tighter IT grades cost significantly more to produce. Always select the *coarsest* grade that meets your functional requirement.
+- The standard applies strictly to **plain (non-threaded, non-geared) cylindrical features**. 
+Threads, gears, and splines have their own separate ISO standards.
+
+
+
+
+Here is a practical reference of the most widely used fits in the **hole-basis system (H holes)**:
+
+| Fit | Type | Typical application |
+|---|---|---|
+| H11/c11 | Loose clearance | Very loose, dirty or wide temperature range |
+| H9/d9 | Free running | Widely toleranced rotating parts, low precision |
+| H8/f7 | Close running | General running fits, grease or oil lubricated |
+| H7/g6 | Sliding | Accurate location, slow movement or sliding |
+| H7/h6 | Close sliding | Precise location, no intentional play |
+| H7/k6 | Transition | Accurate location, slight interference possible |
+| H7/n6 | Transition | More positive location, light press needed |
+| H7/p6 | Light interference | Press fit, permanent but can be disassembled |
+| H7/s6 | Medium interference | Drive fits, high force transmission |
+| H7/u6 | Heavy interference | Permanent joints, high torque or shock loads |
+
+---

@@ -6,7 +6,7 @@ from pathlib import Path
 # imported without requiring pytest to manage sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tolerance_advisor.iso286 import propose_tolerance
+from tolerance_advisor.fit_iso286 import propose_tolerance
 
 
 # In tests we prefer a small in-memory sample database to avoid requiring

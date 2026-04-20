@@ -83,6 +83,7 @@ coverage.xml
 
 *.log
 *.docx#
+*.odt#
 
 .vscode
 
