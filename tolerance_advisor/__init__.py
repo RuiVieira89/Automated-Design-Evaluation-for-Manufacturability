@@ -18,7 +18,14 @@ from .fit_iso286 import (
 )
 from .helpers import load_process_capabilities, find_size_range, choose_process_entry
 from .iso2768 import fundamental_tol_iso2768, propose_general_tolerance
-from .iso1101 import propose_geometric_tolerance
+from .geoTol_iso1101 import (
+    GeoTolResult,
+    propose_geometric_tolerance,
+    recommend_geometric_tolerance,
+    recommend_for_function,
+    list_characteristics,
+    list_functional_classes,
+)
 from .iso4287_4288 import propose_surface_roughness, ra_to_rz
 from .iso8015 import apply_independence_principle, simple_dimensioning_checks
 
@@ -40,7 +47,12 @@ __all__ = [
     "choose_process_entry",
     "fundamental_tol_iso2768",
     "propose_general_tolerance",
+    "GeoTolResult",
     "propose_geometric_tolerance",
+    "recommend_geometric_tolerance",
+    "recommend_for_function",
+    "list_characteristics",
+    "list_functional_classes",
     "propose_surface_roughness",
     "ra_to_rz",
     "apply_independence_principle",
