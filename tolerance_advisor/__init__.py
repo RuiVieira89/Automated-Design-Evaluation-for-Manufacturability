@@ -38,7 +38,30 @@ from .geoTol_iso1101 import (
     list_functional_classes,
 )
 from .iso4287_4288 import propose_surface_roughness, ra_to_rz
-from .iso8015 import apply_independence_principle, simple_dimensioning_checks
+from .GPS_iso8015 import (
+    # constants
+    REFERENCE_TEMPERATURE_C,
+    REFERENCE_PRESSURE_PA,
+    # enums
+    GPSStandard,
+    GPSModifier,
+    GPSOperatorStep,
+    FeatureType,
+    # dataclasses
+    GPSOperator,
+    GPSInvocation,
+    IndependencyResult,
+    GPSFeatureSpec,
+    # functions
+    default_operator_chain,
+    validate_invocation,
+    check_independency,
+    gps_specify_feature,
+    dimensioning_checks,
+    # backwards-compat shims
+    apply_independence_principle,
+    simple_dimensioning_checks,
+)
 
 
 __all__ = [
@@ -74,6 +97,21 @@ __all__ = [
     "list_functional_classes",
     "propose_surface_roughness",
     "ra_to_rz",
+    "REFERENCE_TEMPERATURE_C",
+    "REFERENCE_PRESSURE_PA",
+    "GPSStandard",
+    "GPSModifier",
+    "GPSOperatorStep",
+    "FeatureType",
+    "GPSOperator",
+    "GPSInvocation",
+    "IndependencyResult",
+    "GPSFeatureSpec",
+    "default_operator_chain",
+    "validate_invocation",
+    "check_independency",
+    "gps_specify_feature",
+    "dimensioning_checks",
     "apply_independence_principle",
     "simple_dimensioning_checks",
 ]

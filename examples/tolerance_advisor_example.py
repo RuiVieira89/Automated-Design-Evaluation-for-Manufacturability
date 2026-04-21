@@ -29,7 +29,7 @@ from tolerance_advisor.fit_iso286 import propose_tolerance, fundamental_toleranc
 from tolerance_advisor.linTol_iso2768 import linear_tol_iso2768 as fundamental_tol_iso2768, propose_general_tolerance
 from tolerance_advisor.geoTol_iso1101 import propose_geometric_tolerance
 from tolerance_advisor.iso4287_4288 import propose_surface_roughness, ra_to_rz
-from tolerance_advisor.iso8015 import apply_independence_principle, simple_dimensioning_checks
+from tolerance_advisor.GPS_iso8015 import apply_independence_principle, simple_dimensioning_checks
 
 # ---------------------------------------------------------------------------
 # Helpers
