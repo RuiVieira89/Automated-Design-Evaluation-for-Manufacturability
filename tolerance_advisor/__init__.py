@@ -17,7 +17,18 @@ from .fit_iso286 import (
     evaluate_fit,
 )
 from .helpers import load_process_capabilities, find_size_range, choose_process_entry
-from .iso2768 import fundamental_tol_iso2768, propose_general_tolerance
+from .linTol_iso2768 import (
+    linear_tol_iso2768,
+    fundamental_tol_iso2768,
+    angular_tol_iso2768,
+    geometric_tol_iso2768,
+    propose_general_tolerance,
+    recommend_title_block,
+    TitleBlockRecommendation,
+    list_linear_classes,
+    list_geo_classes,
+    list_geo_characteristics,
+)
 from .geoTol_iso1101 import (
     GeoTolResult,
     propose_geometric_tolerance,
@@ -45,8 +56,16 @@ __all__ = [
     "load_process_capabilities",
     "find_size_range",
     "choose_process_entry",
+    "linear_tol_iso2768",
     "fundamental_tol_iso2768",
+    "angular_tol_iso2768",
+    "geometric_tol_iso2768",
     "propose_general_tolerance",
+    "recommend_title_block",
+    "TitleBlockRecommendation",
+    "list_linear_classes",
+    "list_geo_classes",
+    "list_geo_characteristics",
     "GeoTolResult",
     "propose_geometric_tolerance",
     "recommend_geometric_tolerance",

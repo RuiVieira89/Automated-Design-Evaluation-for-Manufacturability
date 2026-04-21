@@ -1,0 +1,141 @@
+# ISO 2768 — General Tolerances for Linear and Angular Dimensions
+
+## What Is It?
+
+ISO 2768 is an international standard that defines **general (default) tolerances** for linear dimensions, angular dimensions, and geometric form and position — applied to features that are not individually toleranced on a drawing. It eliminates the need to annotate every feature with its own tolerance, reducing drawing complexity while maintaining a shared, unambiguous expectation between designer and manufacturer.
+
+The standard is split into two parts:
+
+| Part | Scope |
+|---|---|
+| **ISO 2768-1** | General tolerances for linear and angular dimensions |
+| **ISO 2768-2** | General tolerances for geometric tolerances (form and position) |
+
+---
+
+## ISO 2768-1 — Linear and Angular Tolerances
+
+Four tolerance classes are defined, identified by a single letter:
+
+| Class | Letter | Description |
+|---|---|---|
+| Fine | **f** | Precision machined parts, tight fits |
+| Medium | **m** | Standard workshop machining (most common default) |
+| Coarse | **c** | Processes with lower inherent precision (casting, hot rolling) |
+| Very coarse | **v** | Heavy fabrication, rough processes |
+
+### What dimensions are covered?
+
+- **Linear dimensions** — lengths, diameters, depths, heights
+- **External radii and chamfer heights**
+- **Angular dimensions**
+
+### Example — Linear tolerance bands (excerpt)
+
+For a nominal dimension between 30 mm and 120 mm:
+
+| Class | Tolerance |
+|---|---|
+| f | ± 0.05 mm |
+| m | ± 0.10 mm |
+| c | ± 0.20 mm |
+| v | ± 0.50 mm |
+
+This means: if your title block reads **ISO 2768-m**, every unannotated linear dimension in that range automatically carries ± 0.10 mm — without writing it on every feature.
+
+---
+
+## ISO 2768-2 — Geometric Tolerances
+
+Four tolerance classes for form and position, identified by a capital letter:
+
+| Class | Letter | Covers |
+|---|---|---|
+| H | H | Straightness, flatness, roundness, cylindricity, parallelism, perpendicularity, symmetry, run-out |
+| K | K | Intermediate precision |
+| L | L | Coarser geometric control |
+
+These are applied independently from Part 1. A drawing may specify, for example, **ISO 2768-mK**, combining medium dimensional tolerances with class K geometric tolerances.
+
+---
+
+## How Is It Applied in Practice?
+
+The standard is invoked through a **single entry in the drawing title block**, such as:
+
+```
+GENERAL TOLERANCES: ISO 2768-mK
+```
+
+This single line replaces dozens of individual tolerance annotations on non-critical features. Features that require tighter or looser control are still toleranced individually using standard GD&T (ISO 1101) notation — ISO 2768 acts as the background default.
+
+### Typical workflow:
+1. Designer assigns ISO 2768 class based on manufacturing process and functional requirements.
+2. Critical features (bores, mating faces, sealing surfaces) are individually annotated.
+3. All remaining features inherit the general tolerance automatically.
+4. Manufacturer and QC use the title block class as the inspection baseline.
+
+---
+
+## When Should You Use ISO 2768?
+
+**Use it when:**
+- The part is produced by conventional machining, casting, forging, or sheet metal fabrication.
+- A significant portion of features are non-critical and do not need individual tolerancing.
+- You want to reduce drawing complexity and annotation time without sacrificing clarity.
+- You are communicating with suppliers in an ISO-standard environment (common in Europe, and widely recognised globally).
+
+**Do not rely on it when:**
+- Features are safety-critical, involve precise fits, or control functional interfaces — these always need explicit tolerances.
+- The manufacturing process falls outside the standard's scope (e.g. additive manufacturing, micro-machining, composite layup — these require process-specific standards).
+- Your supply chain works primarily to ASME Y14.5 (the US GD&T standard) — alignment on which standard governs is essential to avoid ambiguity.
+
+---
+
+## What Does ISO 2768 *Not* Cover?
+
+This is commonly misunderstood. ISO 2768 does **not** cover:
+
+- **Surface roughness** — governed by ISO 1302 and ISO 4287/4288
+- **Fits and limits for holes/shafts** — governed by ISO 286 (the H7/f6 system)
+- **Welding tolerances** — governed by ISO 13920
+- **Thread tolerances** — governed by ISO 965
+- **Positional tolerances beyond the general scope** — use ISO 1101 for full GD&T
+
+Treating ISO 2768 as a complete tolerance solution is a design risk. It is a starting point and a default framework, not a substitute for functional tolerance analysis.
+
+---
+
+## Comparison with Related Approaches
+
+| Approach | When to Use | Limitation |
+|---|---|---|
+| ISO 2768 (general) | Non-critical features, simplified drawings | No functional analysis behind it |
+| ISO 286 (fits) | Shafts, bores, clearance/interference fits | Only for cylindrical features |
+| ISO 1101 (GD&T) | Critical features, datum-controlled geometry | Requires more annotation effort |
+| Statistical tolerancing | High-volume assemblies, stack-up analysis | Requires process capability data |
+| Tolerance simulation (CAT tools) | Complex assemblies, early design validation | Requires 3D model and process data |
+
+---
+
+## Where ML Adds Value Around ISO 2768
+
+Bringing this back to the DFM and ML context: general tolerances are a known source of avoidable production failures. ML-assisted tools are beginning to address this in two areas:
+
+- **Automated tolerance class suggestion** — classification models trained on part geometry, material, and process metadata can recommend whether a feature warrants upgrading from the general class to an explicit tolerance, based on historical non-conformance data.
+- **Tolerance stack-up risk flagging** — in assemblies where many features carry general tolerances, ML models can identify dimensional chains likely to accumulate variation beyond functional limits, prompting designers to add explicit controls earlier in the design process.
+
+Both applications address the core weakness of ISO 2768: it is process-agnostic and carries no inherent functional justification. ML can introduce process and function awareness where the standard alone cannot.
+
+---
+
+## Concrete Recommendation
+
+For a mechanical engineering team looking to apply ISO 2768 effectively:
+
+1. **Establish a company standard** mapping your manufacturing processes to appropriate tolerance classes (e.g. CNC turning → ISO 2768-f or m, sand casting → ISO 2768-c).
+2. **Never use ISO 2768 alone for assembly interfaces** — always add explicit tolerances and fits (ISO 286) for mating features.
+3. **Combine with a tolerance stack-up check** on any assembly with three or more components sharing a functional dimension chain.
+4. **Document the process basis** for your chosen class in the design record — this supports DFM review and supplier qualification.
+
+The standard is most powerful when it is a deliberate, informed choice — not a default left in place because it was already there.
