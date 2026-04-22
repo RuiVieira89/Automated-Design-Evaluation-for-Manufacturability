@@ -23,7 +23,7 @@ GPS hierarchy implemented / planned:
       ├── fit_iso286.py        ← ISO 286   — dimensional fits          ✓ IMPLEMENTED
       ├── linTol_iso2768.py    ← ISO 2768  — general tolerances        ✓ IMPLEMENTED
       ├── geoTol_iso1101.py    ← ISO 1101  — geometric tolerances      ✓ IMPLEMENTED
-      ├── iso4287_4288.py      ← ISO 4287/4288 — surface roughness     ✓ IMPLEMENTED
+      ├── surfRough_iso4287_4288.py ← ISO 4287/4288 — surface roughness  ✓ IMPLEMENTED
       ├── [iso14405.py]        ← ISO 14405 — dimensional size specs    TODO
       ├── [iso2692.py]         ← ISO 2692  — MMC/LMC modifiers         TODO
       ├── [iso5459.py]         ← ISO 5459  — datum systems             TODO
@@ -453,10 +453,25 @@ def gps_specify_feature(
 
     # --- ISO 4287/4288 — surface roughness values ---
     try:
-        from .iso4287_4288 import propose_surface_roughness
-        spec.surface_texture = propose_surface_roughness(
-            process, nominal_size_mm, process_db
+        from .surfRough_iso4287_4288 import recommend_surface_roughness
+        _FUNCTIONAL_CLASS_TO_SURFACE_FUNCTION = {
+            "bearing_bore":       "bearing",
+            "sealing_surface":    "sealing",
+            "sliding_fit":        "sliding",
+            "rotating_shaft":     "sliding",
+            "locating_pin":       "general",
+            "threaded_interface": "general",
+            "assembly_locator":   "general",
+            "general":            "general",
+            "structural":         "general",
+            "cosmetic":           "general",
+        }
+        surface_function = _FUNCTIONAL_CLASS_TO_SURFACE_FUNCTION.get(
+            functional_class.lower(), "general"
         )
+        spec.surface_texture = recommend_surface_roughness(
+            process, function=surface_function, process_db=process_db
+        ).as_dict()
     except Exception as exc:
         spec.warnings.append(f"ISO 4287/4288 (surface roughness): {exc}")
 

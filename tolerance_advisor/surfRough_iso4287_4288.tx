@@ -1,0 +1,153 @@
+# ISO 4287 & ISO 4288 — Surface Texture: Profile Method
+
+These two standards form the core of the classical **profile method** for defining and measuring surface texture. 
+They are foundational in mechanical engineering drawing practice and machined component specification.
+
+---
+
+## What Each Standard Covers
+
+### ISO 4287:1997 — Definitions and Parameters
+
+This is the **vocabulary and parameter standard**. It defines:
+
+- The **profile decomposition** model: primary profile (P), waviness profile (W), and roughness profile (R), 
+each obtained by filtering the measured surface at different wavelengths.
+- The **cut-off wavelengths** (λs, λc, λf) that separate these profile components.
+- All measurable surface texture parameters, organized into three families:
+
+| Family | Notation | What it characterizes |
+|---|---|---|
+| Amplitude | Ra, Rq, Rz, Rp, Rv, Rt... | Height deviations from mean line |
+| Spacing | RSm | Mean width of profile elements |
+| Hybrid | RΔq | Root-mean-square slope |
+| Bearing ratio | Rmr, Rδc | Abbott-Firestone curve characteristics |
+
+The P- and W-prefix equivalents (Pa, Wa, etc.) follow the same definitions applied to the primary and waviness profiles respectively.
+
+### ISO 4288:1996 — Rules and Procedures for Assessment
+
+This is the **measurement methodology standard**. It specifies:
+
+- How to **select the correct cut-off wavelength** λc based on expected Ra or RSm values 
+(you don't know the right filter setting until you have a first estimate — so a sampling procedure is defined).
+- How many **sampling lengths** constitute a valid evaluation length (default: 5 × λc).
+- Rules for **accepting or rejecting** a surface at a specified limit: the 16% rule (default) and the max rule.
+- Conditions for measurement: stylus tip radius, tracing speed, datum requirements.
+- How to handle **periodic vs. non-periodic** surfaces differently in parameter selection.
+
+---
+
+## The Filtering Model — The Core Concept You Must Understand
+
+The two standards are built around a Gaussian filtering decomposition. Every measured surface is broken down as:
+
+```
+Measured profile → Primary profile (P)
+                         ↓ λc filter
+              Roughness profile (R)  +  Waviness profile (W)
+                         ↓ λs filter
+              Smoothed roughness
+```
+
+This means that **Ra is not an intrinsic property of a surface** — it depends entirely on which λc you use. 
+Two engineers measuring the same surface with different cut-off wavelengths will get different Ra values. 
+ISO 4288 fixes this by specifying which λc applies given the expected Ra range.
+
+---
+
+## What You Can Extract from These Standards
+
+### 1. A Common Language for Drawings
+
+Any surface texture callout using the profile method (the √ symbol on drawings per ISO 1302) references parameters defined in ISO 4287. 
+Without 4287, the symbol is undefined.
+
+### 2. Functional Surface Characterization
+
+Different parameters serve different functional purposes:
+
+| Parameter | Best used when the function involves... |
+|---|---|
+| **Ra / Rq** | General roughness specification; statistical comparison between processes |
+| **Rz** | Peak-to-valley height; relevant for sealing, coating adhesion, contact stress |
+| **RSm** | Spacing of asperities; relevant for friction, lubrication film retention |
+| **Rmr (tp)** | Load-bearing capacity; plateau honing, bearing surfaces, piston liners |
+| **Rp / Rv** | Asymmetric profiles; distinguish grinding from honing textures |
+
+### 3. Process-to-Surface Mapping
+
+ISO 4288 indirectly connects to process capability. 
+Knowing that a turned surface runs Ra 1.6–3.2 µm at λc = 0.8 mm tells you which measurement protocol applies and whether a process is meeting the spec.
+
+---
+
+## How It Is Used in Practice
+
+**On engineering drawings**, surfaces are called out per ISO 1302 using parameters from ISO 4287. A typical callout might read:
+
+```
+Ra 1.6 / Rz 10
+```
+
+meaning both constraints must be met simultaneously on the same surface.
+
+**In metrology**, the profilometer operator applies ISO 4288 to:
+1. Estimate the expected Ra from a preliminary scan.
+2. Select the corresponding λc from the table.
+3. Acquire the full evaluation length (5 sampling lengths).
+4. Apply the 16% rule: if ≤16% of individual sampling-length values exceed the specified limit, the surface passes.
+
+**In process development**, engineers use the parameter set to fingerprint process outputs — distinguishing, for example, a well-dressed grinding wheel from a loaded one via RSm drift, before Ra changes detectably.
+
+---
+
+## When Should You Use These Standards?
+
+### Use ISO 4287 + 4288 when:
+- You need a **universally understood, drawing-level surface specification** that any supplier or CMM lab worldwide can measure and verify.
+- Functional requirements are **primarily related to height-based roughness** (sealing faces, sliding bearings, mating surfaces for coatings).
+- You are working in **precision machining**: turning, milling, grinding, honing, lapping.
+- You need a **contractual acceptance criterion** between design and production or between OEM and supplier.
+
+### Consider additional or alternative standards when:
+- **Areal (3D) texture is needed** → ISO 25178 (Sa, Sz, Str, Sdr...). This matters for isotropic surfaces, additive manufactured parts, or when bearing and fluid-retention behavior depend on 3D structure rather than a single 2D trace.
+- **Waviness or form** drives the functional concern → use the W-profile parameters or shift to form tolerancing via ISO 1101 / GPS.
+- **Optical components** → ISO 10110 applies instead.
+- **Weld seam geometry** → process-specific standards take precedence.
+
+---
+
+## The 16% Rule vs. the Max Rule — A Common Source of Error
+
+ISO 4288 defines two acceptance rules and defaults to the **16% rule** unless the drawing explicitly states "max":
+
+- **16% rule**: A surface is conforming if no more than 16% of measured values (across individual sampling lengths) exceed the tolerance. This is statistically linked to a one-sigma limit on a normally distributed process.
+- **Max rule**: Every single measurement must be below the limit. This is significantly stricter and should be reserved for critical functional surfaces.
+
+Most engineers specify Ra without indicating which rule applies, implicitly invoking the 16% rule. If you intend the stricter criterion, you must mark it explicitly on the drawing.
+
+---
+
+## Relationship to Adjacent Standards
+
+| Standard | Relationship to ISO 4287/4288 |
+|---|---|
+| **ISO 1302** | Specifies how surface texture callouts are written on drawings; references 4287 for parameter definitions |
+| **ISO 25178** | The areal (3D) counterpart; superseding 4287/4288 in advanced metrology contexts |
+| **ISO 16610** series | Modern filtering standards that are replacing the Gaussian filter assumptions embedded in 4288 |
+| **ISO GPS framework** | Both 4287 and 4288 are GPS (Geometrical Product Specification) standards; they inherit GPS uncertainty and verification principles |
+
+---
+
+## Concrete Recommendation
+
+For a design-to-manufacturing workflow:
+
+1. **Default to Ra + Rz dual specification** on critical surfaces. 
+Ra alone is insufficient because two surfaces can share identical Ra while having very different peak heights — Rz captures this.
+2. **Explicitly state the acceptance rule** (16% or max) on drawings for any safety-critical or sealing interface.
+3. **Audit your λc assumptions**: if a supplier is measuring Ra on a coarsely machined surface (Rz > 25 µm) 
+using λc = 0.8 mm instead of the correct λc = 2.5 mm, your incoming inspection data is systematically wrong.
+4. **Migrate toward ISO 25178** for surfaces where tribological performance (friction, wear, lubrication) is the design driver — 
+the 2D profile method gives you one cross-section of a fundamentally 3D phenomenon.

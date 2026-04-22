@@ -421,8 +421,10 @@ class TestGpsSpecifyFeature:
             "cylindrical_grinding", process_db=DB,
         )
         assert spec.surface_texture is not None
-        assert "Ra_um" in spec.surface_texture
-        assert "Rz_um" in spec.surface_texture
+        assert "ra_range_um" in spec.surface_texture
+        assert "rz_approx_um" in spec.surface_texture
+        assert "primary_parameter" in spec.surface_texture
+        assert "acceptance_rule" in spec.surface_texture
 
     # --- ISO 8015 independency check ---
 

@@ -37,7 +37,15 @@ from .geoTol_iso1101 import (
     list_characteristics,
     list_functional_classes,
 )
-from .iso4287_4288 import propose_surface_roughness, ra_to_rz
+from .surfRough_iso4287_4288 import (
+    recommend_surface_roughness,
+    recommend_parameter,
+    recommend_standard,
+    list_surface_functions,
+    ra_to_rz,
+    SurfaceRoughnessRecommendation,
+    StandardRecommendation,
+)
 from .GPS_iso8015 import (
     # constants
     REFERENCE_TEMPERATURE_C,
@@ -95,8 +103,13 @@ __all__ = [
     "recommend_for_function",
     "list_characteristics",
     "list_functional_classes",
-    "propose_surface_roughness",
+    "recommend_surface_roughness",
+    "recommend_parameter",
+    "recommend_standard",
+    "list_surface_functions",
     "ra_to_rz",
+    "SurfaceRoughnessRecommendation",
+    "StandardRecommendation",
     "REFERENCE_TEMPERATURE_C",
     "REFERENCE_PRESSURE_PA",
     "GPSStandard",

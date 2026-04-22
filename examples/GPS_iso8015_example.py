@@ -128,11 +128,14 @@ def _print_spec(spec: GPSFeatureSpec) -> None:
     # ISO 4287/4288 — surface roughness
     _section("ISO 4287/4288 — Surface roughness")
     if spec.surface_texture:
-        ra = spec.surface_texture["Ra_um"]
-        rz = spec.surface_texture["Rz_um"]
-        ra_str = str(ra) if isinstance(ra, list) else f"{ra:.2f}"
-        _row("Ra (µm)", ra_str)
-        _row("Rz (µm, approx)", f"{rz:.2f}")
+        st = spec.surface_texture
+        ra_min, ra_max = st["ra_range_um"]
+        _row("Primary parameter", st["primary_parameter"])
+        _row("Secondary parameter", st["secondary_parameter"])
+        _row("Ra range (µm)", f"{ra_min:.4g} – {ra_max:.4g}")
+        _row("Rz approx (µm)", f"{st['rz_approx_um']:.4g}")
+        _row("ISO 4288 cut-off λc (mm)", f"{st['lambda_c_mm']}")
+        _row("Acceptance rule", st["acceptance_rule"])
     else:
         print("  Surface roughness not available.")
 
