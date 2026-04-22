@@ -1,12 +1,27 @@
 """Post-processing utilities for normalized CAD topology."""
 
-from .shape_normalizer import (
-    AssemblyNode,
-    FaceData,
-    NormalizedShape,
-    SolidData,
-    extract_solids,
-    normalize_shape,
+# shape_normalizer requires pythonocc-core at import time; guard so that
+# shape_dimension (and pure-Python consumers) can still be imported without OCC.
+try:
+    from .shape_normalizer import (
+        AssemblyNode,
+        FaceData,
+        NormalizedShape,
+        SolidData,
+        extract_solids,
+        normalize_shape,
+    )
+except ImportError:
+    pass
+
+from .shape_dimension import (
+    infer_dimensions,
+    infer_solid_dimensions,
+    ShapeDimensions,
+    SolidDimensions,
+    CylindricalFeature,
+    PlaneGroup,
+    WallThickness,
 )
 
 __all__ = [
@@ -16,4 +31,11 @@ __all__ = [
     "SolidData",
     "FaceData",
     "AssemblyNode",
+    "infer_dimensions",
+    "infer_solid_dimensions",
+    "ShapeDimensions",
+    "SolidDimensions",
+    "CylindricalFeature",
+    "PlaneGroup",
+    "WallThickness",
 ]
