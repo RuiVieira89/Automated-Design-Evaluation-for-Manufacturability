@@ -1,0 +1,48 @@
+## ISO Standard for Minimal Dimensioning in Production Drawings
+
+The principle you're describing — dimension only what is necessary, and never more — is governed primarily by **ISO 129**, the standard series on the presentation of dimensions and tolerances in technical product documentation.
+
+### The Core Standard: ISO 129
+
+**ISO 129-1:2018** (*Technical product documentation — Presentation of dimensions and tolerances — Part 1: General principles*) is the primary reference. It establishes the foundational rule that:
+
+- Each feature shall be dimensioned **once and only once**
+- Dimensions shall be placed on the view that **most clearly shows the characteristic shape**
+- Only dimensions that are **necessary for defining the finished product** shall be included — not those that can be derived from others
+
+This directly encodes the minimal dimensioning principle as a normative requirement, not just a convention.
+
+### Supporting Standards in the Same Framework
+
+ISO 129 does not operate alone. The minimal dimensioning principle is reinforced and completed by several complementary standards:
+
+**ISO 1101:2017** (GD&T — Geometrical tolerancing) contributes indirectly: by using feature control frames to define functional requirements geometrically, engineers avoid redundant coordinate dimensions that would otherwise be needed to constrain the same feature through multiple linear callouts.
+
+**ISO 16792** (Digital product definition) extends the principle to model-based definition (MBD) environments, where the same rule — annotate each feature once, where it is most readable — applies to 3D annotated models.
+
+**ISO 8015:2011** (*Fundamentals of tolerancing*) establishes the independence principle and the concept of functional dimensioning: dimensions should reflect **functional requirements**, which naturally limits their number to what the part actually needs to perform and be manufactured.
+
+### The Functional Dimensioning Principle
+
+ISO 8015 is worth highlighting separately because it provides the *rationale* behind minimal dimensioning, not just the rule. It establishes that tolerances and dimensions attach to features based on function — which means:
+
+- Dimensions that don't correspond to a functional or manufacturing constraint have no normative basis
+- Redundant dimensions create **over-constrained chains**, which either conflict with or duplicate information already captured elsewhere
+
+This connects directly to tolerance stack-up analysis: a drawing with redundant dimensions is one where the dimensional chain cannot be cleanly traced, a red flag in DFM review.
+
+### What ISO 129-1 Does Not Cover
+
+It is worth being explicit about the boundaries, since this comes up in practice:
+
+- It does not prescribe **which** features to dimension — that remains an engineering judgment based on function, process, and inspection requirements
+- It does not address **tolerance values** — those come from ISO 286 (fits), ISO 2768 (general tolerances), or explicit GD&T per ISO 1101
+- It does not cover **weld symbols**, **surface texture**, or **thread callouts**, which have their own standards (ISO 2553, ISO 1302, ISO 6410 respectively)
+
+### Practical Implication for DFM
+
+In a DFM context, the minimal dimensioning principle has a direct downstream consequence: a drawing that over-dimensions a part forces the manufacturer to resolve conflicts (e.g., a closed tolerance chain with no defined open dimension), while a drawing that under-dimensions leaves features undefined. ISO 129 sets the floor; functional analysis and process capability set the ceiling.
+
+### Recommendation
+
+If you are working on drawing standards or reviewing a documentation process, the practical starting point is **ISO 129-1:2018** for the dimensioning rules, read in conjunction with **ISO 8015:2011** for the underlying functional philosophy. These two together give both the *what* and the *why* of minimal dimensioning, which is what makes them useful for training engineers or auditing drawing quality — rather than just checking a compliance box.

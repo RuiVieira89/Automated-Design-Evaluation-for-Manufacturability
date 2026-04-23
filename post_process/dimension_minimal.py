@@ -1,26 +1,41 @@
-"""Minimal dimension set for 2D drawing representation.
+"""Minimal dimension set for 2D drawing representation (ISO 129).
 
 Takes a ShapeDimensions (from shape_dimension.py) and a manufacturing process,
 and returns the fewest dimensions needed to fully define the part in a 2D
 engineering drawing, with tolerances derived from the process IT grade.
 
-Process dependence (from process_capabilities.yaml)
-----------------------------------------------------
-Process class is inferred from the typical IT grade:
+ISO 129 rules applied
+---------------------
+1. Each feature is dimensioned once and only once.
+2. Dimensions derivable from others are omitted (open-chain rule).
+3. Only dimensions necessary to define the finished product are included.
 
+Specifically:
+
+* **Overall dimensions** (length × width × height) are always added — they
+  define the bounding envelope.
+
+* **Cylindrical features**: diameter is added once per unique size; depth is
+  added only for *blind* holes (omitted when the hole spans the full solid
+  extent in its axis direction, making it derivable from the overall dim).
+
+* **Positional dimensions** are added for medium/fine processes; suppressed
+  for coarse (general tolerance covers them).
+
+* **Wall/step dimensions** are derived from plane groups, not from the raw
+  wall-thickness list.  A plane group with a single gap represents an outer
+  wall whose thickness equals the overall dimension in that direction — it is
+  already captured and is not re-added.  A group with N gaps represents steps
+  or pocket walls; the open-chain rule is applied: the largest gap (which is
+  derivable as overall minus the others) is omitted, and N-1 gaps are
+  annotated.  For coarse/medium processes only gaps below the thin-wall
+  threshold or the minimum feature size are included.
+
+Process class (from typical IT grade)
+--------------------------------------
   fine   (IT ≤ 7)  : cylindrical grinding, honing, lapping, boring, reaming, EDM
   medium (IT 8–11) : CNC turning/milling, drilling, die casting, investment casting
   coarse (IT ≥ 12) : sand casting, hot forging, FDM, SLS, stamping
-
-Rules per class
----------------
-  coarse  — overall envelope only; cylinders above 2× min_feature_size;
-             wall thickness only when it falls below the manufacturing risk
-             threshold; no position dimensions (general tolerance covers them).
-  medium  — overall + all in-range cylinders with position (X, Y from datum);
-             thin-wall check at 15% of minimum principal dimension.
-  fine    — all of the above plus every wall thickness, all cylinder positions,
-             and up to 3 additional span dimensions.
 """
 
 from __future__ import annotations
@@ -51,15 +66,13 @@ from tolerance_advisor.helpers import choose_process_entry, load_process_capabil
 
 _EPSILON = 1e-6
 
-# Fraction of the minimum principal dimension below which a wall is flagged
+# Fraction of the minimum principal dimension below which an internal wall is
+# considered thin enough to annotate (medium process class only).
 _WALL_THIN_FRACTION: Dict[str, float] = {
-    "fine":   0.0,    # always include every wall thickness
+    "fine":   0.0,    # all internal walls are always annotated
     "medium": 0.15,
     "coarse": 0.0,    # controlled by absolute min_feature threshold instead
 }
-
-# Maximum additional span entries per process class
-_MAX_SPANS: Dict[str, int] = {"fine": 3, "medium": 2, "coarse": 1}
 
 # ISO 2768 title-block note by IT grade
 def _general_tol_note(it_grade_int: int) -> str:
@@ -90,8 +103,7 @@ class DimensionEntry:
         ``"diameter"``, ``"depth"``                — cylindrical feature
         ``"position_x"``, ``"position_y"``,
         ``"position_z"``                           — cylinder centre from datum edge
-        ``"wall_thickness"``                       — gap between parallel planes
-        ``"span"``                                 — additional planar extent
+        ``"wall_thickness"``                       — internal step or pocket wall
     nominal_mm:
         Nominal value in millimetres.
     tolerance_mm:
@@ -154,7 +166,7 @@ class MinimalDimensionSet:
         ``"fine"``, ``"medium"``, or ``"coarse"``.
     dimensions:
         Ordered list of :class:`DimensionEntry` — overall first, then
-        cylindrical features, walls, spans.
+        cylindrical features, walls.
     general_tolerance_note:
         ISO 2768 title-block recommendation for non-annotated features.
     warnings:
@@ -259,33 +271,32 @@ def minimal_solid_dimensions(
 
     warnings: List[str] = []
     dimensions: List[DimensionEntry] = []
-    sid = solid_dims.solid_id
 
     # ------------------------------------------------------------------
-    # 1. Overall dimensions (always included)
+    # 1. Overall dimensions — always included; define the envelope
     # ------------------------------------------------------------------
     _add_overall(dimensions, solid_dims, it_grade, proc_class,
                  dim_min, dim_max, min_feat, warnings)
 
     # ------------------------------------------------------------------
-    # 2. Cylindrical features
+    # 2. Cylindrical features — diameter (deduplicated) + depth for
+    #    blind holes only + position for medium/fine
     # ------------------------------------------------------------------
     _add_cylinders(dimensions, solid_dims, it_grade, proc_class,
                    min_feat, dim_min, dim_max, warnings)
 
     # ------------------------------------------------------------------
-    # 3. Wall thicknesses
+    # 3. Internal wall/step dimensions derived from plane groups.
+    #    Outer walls (single gap per group) are derivable from overall
+    #    dims and are omitted.  Multi-gap groups (steps, pockets) are
+    #    annotated with the open-chain rule: the largest gap is left
+    #    open because it is derivable from overall minus the others.
     # ------------------------------------------------------------------
     _add_walls(dimensions, solid_dims, it_grade, proc_class,
                min_feat, warnings)
 
-    # ------------------------------------------------------------------
-    # 4. Additional spans (planar groups not covered by overall dims)
-    # ------------------------------------------------------------------
-    _add_spans(dimensions, solid_dims, it_grade, proc_class)
-
     return MinimalDimensionSet(
-        solid_id=sid,
+        solid_id=solid_dims.solid_id,
         process=process,
         it_grade=it_grade,
         process_class=proc_class,
@@ -346,17 +357,22 @@ def _add_cylinders(
     cylinders = sorted(sd.cylinders, key=lambda c: c.area, reverse=True)
 
     # Diameter threshold by process class
-    if proc_class == "coarse":
-        diam_threshold = min_feat * 2.0
-    else:
-        diam_threshold = min_feat
+    diam_threshold = min_feat * 2.0 if proc_class == "coarse" else min_feat
+
+    # Overall extents in each axis direction (from bounding box, not sorted dims)
+    xmin, ymin, zmin, xmax, ymax, zmax = sd.bounding_box
+    _axis_extent = {"x": xmax - xmin, "y": ymax - ymin, "z": zmax - zmin}
 
     seen_diameters: List[float] = []
+    seen_depths: List[float] = []
 
     for cyl in cylinders:
         d = cyl.diameter_est
         h = cyl.height_est
+        axis = _cylinder_axis(cyl)
+        overall_in_axis = _axis_extent[axis]
 
+        # --- Diameter ---
         if d < diam_threshold:
             warnings.append(
                 f"Solid {sd.solid_id}: cylindrical feature Ø{d:.3g} mm is below "
@@ -369,11 +385,10 @@ def _add_cylinders(
         else:
             priority_d = "important" if not seen_diameters else "informational"
 
-        # Deduplicate diameter specification — same nominal if within IT tolerance
         it_tol = _tol(max(d, 1.0), it_grade)
-        duplicate = any(abs(d - prev) <= 2 * it_tol for prev in seen_diameters)
+        duplicate_d = any(abs(d - prev) <= 2 * it_tol for prev in seen_diameters)
 
-        if not duplicate:
+        if not duplicate_d:
             seen_diameters.append(d)
             out.append(DimensionEntry(
                 kind="diameter",
@@ -386,25 +401,31 @@ def _add_cylinders(
                 priority=priority_d,
             ))
 
-        # Depth / height dimension — always per-feature (not deduplicated)
-        out.append(DimensionEntry(
-            kind="depth",
-            nominal_mm=h,
-            tolerance_mm=_tol(max(h, 1.0), it_grade),
-            it_grade=it_grade,
-            description=f"Depth of Ø{d:.4g} feature",
-            solid_id=sd.solid_id,
-            face_ids=[cyl.face_id],
-            priority="important",
-        ))
+        # --- Depth (blind holes only) ---
+        # A through-hole's depth equals the overall dim in the cylinder axis
+        # direction and is therefore derivable — omit it per ISO 129.
+        depth_tol = _tol(max(h, 1.0), it_grade)
+        is_through = abs(h - overall_in_axis) <= 2 * depth_tol
+        duplicate_h = any(abs(h - prev) <= 2 * depth_tol for prev in seen_depths)
 
-        # Position dimensions — medium and fine only
+        if not is_through and not duplicate_h:
+            seen_depths.append(h)
+            out.append(DimensionEntry(
+                kind="depth",
+                nominal_mm=h,
+                tolerance_mm=depth_tol,
+                it_grade=it_grade,
+                description=f"Depth of Ø{d:.4g} feature",
+                solid_id=sd.solid_id,
+                face_ids=[cyl.face_id],
+                priority="important",
+            ))
+
+        # --- Position (medium and fine only) ---
         if proc_class != "coarse":
             bb = sd.bounding_box
             cx, cy, cz = cyl.center
-            axis = _cylinder_axis(cyl)
 
-            # Emit the two positional coordinates in the plane perpendicular to axis
             coords = [
                 ("position_x", cx - bb[0], "X from left datum"),
                 ("position_y", cy - bb[1], "Y from front datum"),
@@ -433,9 +454,17 @@ def _add_walls(
     min_feat: float,
     warnings: List[str],
 ) -> None:
-    if not sd.wall_thicknesses:
-        return
+    """Add internal wall/step dimensions from plane groups (ISO 129 open-chain rule).
 
+    Plane groups with a single gap represent outer walls whose thickness equals
+    the solid's overall dimension in that direction — already captured by
+    _add_overall, so they are skipped (except to issue a warning when below the
+    minimum feature size).
+
+    Plane groups with N gaps represent internal steps or pocket walls.  All
+    gaps except the largest are annotated; the largest is left open because it
+    is derivable as (overall span − sum of the others).
+    """
     min_principal = min(sd.length, sd.width, sd.height)
     thin_threshold = (
         min_principal * _WALL_THIN_FRACTION[proc_class]
@@ -443,66 +472,71 @@ def _add_walls(
         else min_feat * 1.5
     )
 
-    for wt in sd.wall_thicknesses:
-        t = wt.thickness_mm
-        is_thin = t < thin_threshold or t < min_feat
-        should_include = (
-            proc_class == "fine"
-            or is_thin
-        )
-        if not should_include:
-            continue
-
-        priority = "critical" if t < min_feat else ("important" if is_thin else "informational")
-        if t < min_feat:
-            warnings.append(
-                f"Solid {sd.solid_id}: wall thickness {t:.3g} mm is below "
-                f"process minimum feature size ({min_feat:.3g} mm)."
-            )
-
-        out.append(DimensionEntry(
-            kind="wall_thickness",
-            nominal_mm=t,
-            tolerance_mm=_tol(max(t, 1.0), it_grade),
-            it_grade=it_grade,
-            description=f"Wall thickness between faces {wt.face_ids[0]}–{wt.face_ids[1]}",
-            solid_id=sd.solid_id,
-            face_ids=list(wt.face_ids),
-            priority=priority,
-        ))
-
-
-def _add_spans(
-    out: List[DimensionEntry],
-    sd: SolidDimensions,
-    it_grade: str,
-    proc_class: str,
-) -> None:
-    max_spans = _MAX_SPANS[proc_class]
-    overall_dims = {sd.length, sd.width, sd.height}
-    added = 0
-
     for pg in sd.plane_groups:
-        if added >= max_spans:
-            break
-        span = pg.span
-        if span < _EPSILON:
-            continue
-        # Skip if the span is already captured by an overall dimension
-        if any(abs(span - d) / max(d, _EPSILON) < 0.05 for d in overall_dims):
+        if len(pg.face_ids) < 2:
             continue
 
-        out.append(DimensionEntry(
-            kind="span",
-            nominal_mm=span,
-            tolerance_mm=_tol(max(span, 1.0), it_grade),
-            it_grade=it_grade,
-            description=f"Planar extent along normal {_fmt_normal(pg.normal)}",
-            solid_id=sd.solid_id,
-            face_ids=pg.face_ids,
-            priority="informational",
-        ))
-        added += 1
+        # Sort faces by position along the group normal to get consecutive gaps.
+        sorted_pairs = sorted(zip(pg.positions, pg.face_ids))
+        gaps: List[Tuple[float, int, int]] = []
+        for (p_lo, fid_lo), (p_hi, fid_hi) in zip(sorted_pairs, sorted_pairs[1:]):
+            gap = p_hi - p_lo
+            if gap > _EPSILON:
+                gaps.append((gap, fid_lo, fid_hi))
+
+        if not gaps:
+            continue
+
+        if len(gaps) == 1:
+            # Single gap = the outer wall in this direction.  Its thickness is
+            # the overall dimension — already captured.  Issue a warning only
+            # when below the minimum feature size.
+            t = gaps[0][0]
+            if t < min_feat:
+                warnings.append(
+                    f"Solid {sd.solid_id}: wall (thickness {t:.3g} mm) is below "
+                    f"process minimum feature size ({min_feat:.3g} mm)."
+                )
+            continue
+
+        # Multiple gaps: apply the open-chain rule.
+        # Sort descending by gap size; skip the largest (it is derivable).
+        gaps_desc = sorted(gaps, key=lambda x: x[0], reverse=True)
+        gaps_to_add = gaps_desc[1:]  # omit the largest
+
+        for (t, fid_lo, fid_hi) in gaps_to_add:
+            is_critical = t < min_feat
+            is_thin = t < thin_threshold
+
+            should_include = (
+                proc_class == "fine"
+                or is_critical
+                or is_thin
+            )
+            if not should_include:
+                continue
+
+            priority = (
+                "critical" if is_critical
+                else "important" if is_thin
+                else "informational"
+            )
+            if is_critical:
+                warnings.append(
+                    f"Solid {sd.solid_id}: wall thickness {t:.3g} mm is below "
+                    f"process minimum feature size ({min_feat:.3g} mm)."
+                )
+
+            out.append(DimensionEntry(
+                kind="wall_thickness",
+                nominal_mm=t,
+                tolerance_mm=_tol(max(t, 1.0), it_grade),
+                it_grade=it_grade,
+                description=f"Wall thickness between faces {fid_lo}–{fid_hi}",
+                solid_id=sd.solid_id,
+                face_ids=[fid_lo, fid_hi],
+                priority=priority,
+            ))
 
 
 # ---------------------------------------------------------------------------
@@ -527,7 +561,6 @@ def _tol(nominal_mm: float, it_grade: str) -> float:
     try:
         return fundamental_tolerance(clamped, it_grade)
     except (ValueError, KeyError):
-        # Fallback: 0.1% of nominal
         return round(nominal_mm * 0.001, 6)
 
 
@@ -549,6 +582,12 @@ def _overall_priority(
         warnings.append(
             f"Overall {kind} {nominal:.4g} mm is below process dimensional "
             f"range (min {dim_min:.4g} mm)."
+        )
+        return "critical"
+    if nominal < min_feat:
+        warnings.append(
+            f"Overall {kind} {nominal:.4g} mm is below process minimum "
+            f"feature size ({min_feat:.4g} mm)."
         )
         return "critical"
     return "important"

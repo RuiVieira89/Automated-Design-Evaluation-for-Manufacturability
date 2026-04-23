@@ -281,12 +281,19 @@ class TestOverallDimensions(unittest.TestCase):
 
 class TestCylindricalDimensions(unittest.TestCase):
 
-    def test_cylinder_produces_diameter_and_depth(self):
+    def test_blind_cylinder_produces_diameter_and_depth(self):
+        # h=20 in a box of height 30 → blind hole → depth must be annotated
         sd = _solid_dims(0, 100, 50, 30, r=8, h=20)
         mds = minimal_solid_dimensions(sd, "milling", MEDIUM_DB)
         kinds = [d.kind for d in mds.dimensions]
         self.assertIn("diameter", kinds)
         self.assertIn("depth", kinds)
+
+    def test_through_hole_omits_depth(self):
+        # h=30 matches the box height 30 → through-hole → depth derivable, must NOT appear
+        sd = _solid_dims(0, 100, 50, 30, r=8, h=30)
+        mds = minimal_solid_dimensions(sd, "milling", MEDIUM_DB)
+        self.assertEqual([d for d in mds.dimensions if d.kind == "depth"], [])
 
     def test_no_cylinder_no_diameter_entry(self):
         sd = _solid_dims(0, 100, 50, 30)
@@ -336,39 +343,55 @@ class TestCylindricalDimensions(unittest.TestCase):
 
 class TestWallThickness(unittest.TestCase):
 
-    def test_fine_includes_all_walls(self):
-        sd = _solid_dims(0, 100, 50, 30)
+    def test_simple_box_has_no_wall_thickness_entries(self):
+        # ISO 129: outer walls = overall dims → already captured, must not be duplicated.
+        for db, proc in [(FINE_DB,"grinding"), (MEDIUM_DB,"milling"), (COARSE_DB,"casting")]:
+            sd = _solid_dims(0, 100, 50, 30)
+            mds = minimal_solid_dimensions(sd, proc, db)
+            walls = [d for d in mds.dimensions if d.kind == "wall_thickness"]
+            self.assertEqual(walls, [],
+                             f"Simple box must have 0 wall_thickness entries for {proc}")
+
+    def test_stepped_solid_adds_step_not_outer(self):
+        # A solid with a step (3 parallel planes in one direction) should add the
+        # step dimension but NOT the outer wall (which equals the overall dim).
+        # We simulate a step by adding an extra plane group with 3 faces in Z.
+        from post_process.shape_dimension import PlaneGroup, WallThickness
+        import math
+        # Build a box with a step: Z planes at 0, 20, 50
+        raw = _box_solid(0, 100, 60, 50)
+        # Inject an intermediate plane face at z=20 (normal -Z → canonical +Z)
+        step_face = _pf(10, (0, 0, -1), (50, 30, 20), 100*60, (0, 0, 20, 100, 60, 20))
+        raw.faces.append(step_face)
+        sd = infer_solid_dimensions(raw)
         mds = minimal_solid_dimensions(sd, "grinding", FINE_DB)
         walls = [d for d in mds.dimensions if d.kind == "wall_thickness"]
-        # Fine process: all 3 box wall thicknesses (30, 50, 100) should appear
-        self.assertEqual(len(walls), 3)
+        # Open-chain rule: 2 gaps (20, 30) → add 1 (the smaller=20), skip 30 (derivable)
+        self.assertEqual(len(walls), 1)
+        self.assertAlmostEqual(walls[0].nominal_mm, 20.0, places=3)
 
-    def test_medium_filters_thick_walls(self):
-        # Box 100×50×30: only thin walls (30mm < 0.15×30 = 4.5mm? no → none)
-        # Use a box with a very thin dimension
-        sd = _solid_dims(0, 100, 50, 3)  # height=3mm, threshold=0.15×3=0.45mm
+    def test_wall_below_min_feature_raises_warning(self):
+        # A solid whose height is below min_feature_size triggers a warning.
+        # The overall height dim carries critical priority (below dim_min=1 for MEDIUM_DB).
+        sd = _solid_dims(0, 100, 50, 0.2)  # 0.2mm < min_feat=0.5mm and < dim_min=1
         mds = minimal_solid_dimensions(sd, "milling", MEDIUM_DB)
-        walls = [d for d in mds.dimensions if d.kind == "wall_thickness"]
-        # 3mm is the thinnest wall; 0.15×3=0.45mm threshold → 3mm not included
-        # but min_feature=0.5 → 3mm > 0.5mm so not critical either
-        # medium should not include 3mm since it's > threshold (0.45mm)
-        self.assertIsInstance(walls, list)  # just verify no crash
+        # Warning must be issued (wording includes "wall" or "below" or "feature")
+        self.assertTrue(any("0.2" in w or "feature" in w.lower() or "wall" in w.lower()
+                            for w in mds.warnings))
+        # Overall height dimension must be critical
+        crit_overall = [d for d in mds.dimensions
+                        if d.kind == "height" and d.priority == "critical"]
+        self.assertGreater(len(crit_overall), 0)
 
-    def test_wall_below_min_feature_is_critical(self):
-        # A very thin wall below min_feature_size
-        sd = _solid_dims(0, 100, 50, 0.2)  # 0.2mm < min_feat=0.5mm
-        mds = minimal_solid_dimensions(sd, "milling", MEDIUM_DB)
-        crit_walls = [d for d in mds.dimensions
-                      if d.kind == "wall_thickness" and d.priority == "critical"]
-        self.assertGreater(len(crit_walls), 0)
-        self.assertTrue(any("wall" in w.lower() for w in mds.warnings))
-
-    def test_coarse_thin_wall_threshold(self):
-        # Wall below 1.5 × min_feature (1.5 × 3 = 4.5mm) should appear for coarse
-        sd = _solid_dims(0, 100, 50, 4)   # height=4mm < 4.5mm
+    def test_coarse_thin_overall_dim_is_critical(self):
+        # Height 4mm < dim_min=10 for COARSE_DB → overall height is critical.
+        sd = _solid_dims(0, 100, 50, 4)
         mds = minimal_solid_dimensions(sd, "casting", COARSE_DB)
+        crit = [d for d in mds.dimensions if d.priority == "critical"]
+        self.assertGreater(len(crit), 0)
+        # No wall_thickness entries for a simple box (outer wall = overall dim)
         walls = [d for d in mds.dimensions if d.kind == "wall_thickness"]
-        self.assertGreater(len(walls), 0)
+        self.assertEqual(walls, [])
 
 
 # ===========================================================================
