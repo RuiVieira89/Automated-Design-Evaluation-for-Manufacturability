@@ -23,6 +23,12 @@ from .shape_dimension import (
     PlaneGroup,
     WallThickness,
 )
+from .dimension_minimal import (
+    minimal_dimensions,
+    minimal_solid_dimensions,
+    MinimalDimensionSet,
+    DimensionEntry,
+)
 
 __all__ = [
     "normalize_shape",
@@ -38,4 +44,8 @@ __all__ = [
     "CylindricalFeature",
     "PlaneGroup",
     "WallThickness",
+    "minimal_dimensions",
+    "minimal_solid_dimensions",
+    "MinimalDimensionSet",
+    "DimensionEntry",
 ]

@@ -44,10 +44,24 @@ class CylindricalFeature:
     radius_est: float
     height_est: float
     area: float
+    bounding_box: Tuple[float, float, float, float, float, float] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     @property
     def diameter_est(self) -> float:
         return self.radius_est * 2.0
+
+    @property
+    def axis(self) -> str:
+        """Infer cylinder axis ('x', 'y', or 'z') from the face bounding box.
+
+        The axis direction is the one whose bounding-box extent best matches
+        the estimated height (the two perpendicular extents match 2r).
+        """
+        xmin, ymin, zmin, xmax, ymax, zmax = self.bounding_box
+        dx, dy, dz = xmax - xmin, ymax - ymin, zmax - zmin
+        h = self.height_est
+        diffs = [("x", abs(dx - h)), ("y", abs(dy - h)), ("z", abs(dz - h))]
+        return min(diffs, key=lambda t: t[1])[0]
 
     def as_dict(self) -> Dict:
         return {
@@ -56,6 +70,7 @@ class CylindricalFeature:
             "radius_est_mm": self.radius_est,
             "diameter_est_mm": self.diameter_est,
             "height_est_mm": self.height_est,
+            "axis": self.axis,
             "area": self.area,
         }
 
@@ -290,6 +305,7 @@ def _estimate_cylinder(face: FaceData) -> CylindricalFeature:
         radius_est=max(r_est, _EPSILON),
         height_est=max(h_est, _EPSILON),
         area=face.area,
+        bounding_box=face.bounding_box,
     )
 
 
