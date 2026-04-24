@@ -46,6 +46,17 @@ from .surfRough_iso4287_4288 import (
     SurfaceRoughnessRecommendation,
     StandardRecommendation,
 )
+from .toleranceStackup import (
+    DimensionContributor,
+    StackUpChain,
+    StackUpResult,
+    assign_iso2768_tolerance,
+    assign_process_tolerance,
+    contributors_from_solid,
+    contributors_from_mds,
+    compute_stack_up,
+    print_stack_up_report,
+)
 from .GPS_iso8015 import (
     # constants
     REFERENCE_TEMPERATURE_C,
@@ -73,6 +84,15 @@ from .GPS_iso8015 import (
 
 
 __all__ = [
+    "DimensionContributor",
+    "StackUpChain",
+    "StackUpResult",
+    "assign_iso2768_tolerance",
+    "assign_process_tolerance",
+    "contributors_from_solid",
+    "contributors_from_mds",
+    "compute_stack_up",
+    "print_stack_up_report",
     "IT_MULTIPLIERS",
     "geometric_mean",
     "standard_tolerance_factor",
