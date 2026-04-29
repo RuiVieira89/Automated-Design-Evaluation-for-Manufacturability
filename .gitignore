@@ -88,3 +88,5 @@ coverage.xml
 .vscode
 
 activate_env.sh
+
+data/CAD_generated
