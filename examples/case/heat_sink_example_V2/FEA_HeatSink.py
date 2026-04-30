@@ -21,15 +21,15 @@ is T_base_hot minus the temperature drop across the contact resistance:
 
     T_base_surface = T_base_hot - q / h_contact
 
-where q is the heat flux and h_contact is the contact conductance computed by
-ContactConductance (Cooper-Mikic-Yovanovich + gap model) at the mechanical
-contact pressure |mech_load_pressure|.  When h_conv_base is supplied explicitly
-it overrides the contact-model computation.
+where h_contact is the base contact conductance [W/(mm²·K)].  The caller is
+responsible for computing h_conv_base (e.g. via ContactConductance in
+HeatSink_Optimize.py).  A standard default representative of a ground
+aluminium–aluminium interface at moderate contact pressure is provided.
 
 Optimization parameters:
     mech_load_pressure  – pressure on fin tops [N/mm²]
     h_conv_fins         – convection coefficient on fin surfaces [W/(mm²·K)]
-    h_conv_base         – override base conductance [W/(mm²·K)]; None → contact model
+    h_conv_base         – base contact conductance [W/(mm²·K)]
     T_ambient           – ambient temperature (fin cooling side) [K]
     T_base_hot          – hot-side source temperature [K]
 
@@ -51,7 +51,6 @@ Usage
 
 from __future__ import annotations
 
-import shutil
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -72,13 +71,6 @@ from EasyFEA import Display, ElemType, Mesher
 from EasyFEA import Models
 from EasyFEA.Models._utils import ModelType
 from EasyFEA.Simulations import Elastic, Thermal
-from physics.heatTransfer_contact_pressure import ContactConductance, ContactSurface
-
-# ---------------------------------------------------------------------------
-# Default STEP file path (used when no step_content is supplied)
-# EasyFEA's Mesh_Import_part requires the ".stp" extension
-# ---------------------------------------------------------------------------
-_STEP_FILE = ROOT / "data" / "CAD_generated" / "heat_sink.step"
 
 # ---------------------------------------------------------------------------
 # Default geometry constants  (match CAD_heatSink.py defaults)
@@ -93,14 +85,9 @@ _YOUNG_E = 70_000.0   # N/mm²    (= 70 GPa)
 _POISSON = 0.33
 _COND_K  = 0.200      # W/(mm·K) (= 200 W/(m·K))
 
-# Default contact surface: ground aluminium in mm units
-# k [W/(mm·K)], σ [mm], H_c [N/mm² = MPa]
-_DEFAULT_AL_SURFACE_MM = ContactSurface(
-    thermal_conductivity=0.200,
-    roughness_rms=1.6e-3,        # 1.6 μm
-    asperity_slope_rms=0.12,
-    microhardness=1000.0,        # 1 GPa
-)
+# Standard base contact conductance: ground Al–Al at moderate pressure (~1 MPa)
+# ≈ 3 000 W/(m²·K) converted to W/(mm²·K)
+_DEFAULT_H_CONV_BASE = 3.0e-3   # W/(mm²·K)
 
 
 # ---------------------------------------------------------------------------
@@ -190,32 +177,23 @@ class HeatSinkFEA:
 
     Parameters
     ----------
+    step_content : str
+        Raw STEP file text returned by ``build_heat_sink()``.  The geometry
+        is meshed directly from this string — no disk I/O occurs.
     mech_load_pressure : float
         Surface pressure on fin tops [N/mm²]. Negative = compressive.
-        Also used as the contact pressure magnitude for the base BC.
     h_conv_fins : float
         Convection coefficient on fin surfaces [W/(mm²·K)].
-    h_conv_base : float | None
-        Override conductance for the base Robin BC [W/(mm²·K)].
-        When None (default), the contact conductance is computed from
-        ContactConductance at pressure |mech_load_pressure|.
+    h_conv_base : float
+        Base contact conductance [W/(mm²·K)].  Supply this from
+        ContactConductance (computed in HeatSink_Optimize) or use the
+        built-in standard default for ground Al–Al at moderate pressure.
     T_ambient : float
         Ambient (coolant) temperature [K].
     T_base_hot : float
         Hot-side source temperature [K].  The effective heatsink base
         surface temperature is T_base_hot minus the contact-resistance
         temperature drop (handled implicitly by the Robin BC).
-    contact_surface_a, contact_surface_b : ContactSurface
-        Surface properties for each mating face at the base.
-        Defaults to a ground aluminium–aluminium interface in mm units.
-    base_gap_fluid_conductivity : float
-        Interstitial gas conductivity [W/(mm·K)].  Default: air ≈ 2.6e-5.
-    base_gas_parameter : float
-        Gas rarefaction parameter M [mm].  Default: air at 1 atm ≈ 4e-4 mm.
-    base_paste_conductivity : float | None
-        Thermal paste conductivity [W/(mm·K)].  None = bare gas gap.
-    base_paste_thickness : float | None
-        Explicit bond-line thickness [mm].  None = use computed mean gap.
     fin_height : float
         Height of each fin [mm]. Must match the CAD geometry.
     base_height : float
@@ -226,44 +204,27 @@ class HeatSinkFEA:
         Element type (TETRA4 or TETRA10).
     coord_tol : float
         Tolerance for surface node selection [mm].
-    step_content : str | None
-        Raw STEP file text. When provided the geometry is meshed directly
-        from this string (no disk read). When None, ``_STEP_FILE`` is used.
     """
 
     def __init__(
         self,
+        step_content: str,
         mech_load_pressure: float = -1.0,
         h_conv_fins: float = 5.0e-5,
-        h_conv_base: float | None = None,
+        h_conv_base: float = _DEFAULT_H_CONV_BASE,
         T_ambient: float = 300.0,
         T_base_hot: float = 400.0,
-        contact_surface_a: ContactSurface = _DEFAULT_AL_SURFACE_MM,
-        contact_surface_b: ContactSurface = _DEFAULT_AL_SURFACE_MM,
-        base_gap_fluid_conductivity: float = 2.6e-5,
-        base_gas_parameter: float = 4e-4,
-        base_paste_conductivity: float | None = None,
-        base_paste_thickness: float | None = None,
         fin_height: float = _FIN_HEIGHT,
         base_height: float = _BASE_HEIGHT,
         mesh_size: float = 3.0,
         elem_type: ElemType = ElemType.TETRA4,
         coord_tol: float = 0.5,
-        step_content: str | None = None,
     ) -> None:
         self.mech_load_pressure = mech_load_pressure
         self.h_conv_fins = h_conv_fins
         self.h_conv_base = h_conv_base
         self.T_ambient = T_ambient
         self.T_base_hot = T_base_hot
-        self._contact_model = ContactConductance(
-            surface_a=contact_surface_a,
-            surface_b=contact_surface_b,
-            gap_fluid_conductivity=base_gap_fluid_conductivity,
-            gas_parameter=base_gas_parameter,
-            paste_conductivity=base_paste_conductivity,
-            paste_thickness=base_paste_thickness,
-        )
         self.fin_height = fin_height
         self.base_height = base_height
         self.mesh_size = mesh_size
@@ -290,26 +251,20 @@ class HeatSinkFEA:
         z_base  = self.base_height
         z_total = self.base_height + self.fin_height
 
-        # 1. Mesh — from in-memory STEP text or from the default file on disk
+        # 1. Mesh — write STEP content to a temp file (OCC requires a file path)
         print("Meshing …")
-        if self.step_content is not None:
-            tmp = tempfile.NamedTemporaryFile(suffix=".stp", delete=False)
-            tmp_path = Path(tmp.name)
-            tmp.write(self.step_content.encode())
-            tmp.close()
-            stp_path = tmp_path
-        else:
-            stp_path = _STEP_FILE.with_suffix(".stp")
-            shutil.copy(_STEP_FILE, stp_path)
+        tmp = tempfile.NamedTemporaryFile(suffix=".stp", delete=False)
+        tmp_path = Path(tmp.name)
+        tmp.write(self.step_content.encode())
+        tmp.close()
 
         try:
             mesher = Mesher()
             mesh = mesher.Mesh_Import_part(
-                str(stp_path), dim=3, meshSize=self.mesh_size, elemType=self.elem_type
+                str(tmp_path), dim=3, meshSize=self.mesh_size, elemType=self.elem_type
             )
         finally:
-            if self.step_content is not None:
-                stp_path.unlink(missing_ok=True)
+            tmp_path.unlink(missing_ok=True)
 
         print(f"  Nodes: {mesh.Nn}   Elements: {mesh.Ne}")
         coords = mesh.coord
@@ -362,15 +317,7 @@ class HeatSinkFEA:
             _h_fins = float(self.h_conv_fins)
             fins_h = lambda x: np.full(len(x), _h_fins)
 
-        if self.h_conv_base is not None:
-            _h_base = float(self.h_conv_base)
-        else:
-            contact_pressure = abs(self.mech_load_pressure)
-            _h_base = self._contact_model(contact_pressure).h_total
-            print(
-                f"  Contact conductance at {contact_pressure:.3g} N/mm²: "
-                f"h_base = {_h_base:.4g} W/(mm²·K)"
-            )
+        _h_base = float(self.h_conv_base)
         base_h = lambda x: np.full(len(x), _h_base)
 
         M_fins, f_fins = _build_robin_matrices(coords, connect, mask_fins, Nn, fins_h)
@@ -480,6 +427,8 @@ class HeatSinkFEA:
 # Script entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    model   = HeatSinkFEA()
-    results = model(plot=True)
+    from examples.case.heat_sink_example_V2.CAD_heatSink import build_heat_sink
+    step_text = build_heat_sink()
+    model     = HeatSinkFEA(step_content=step_text)
+    results   = model(plot=True)
     print(results)

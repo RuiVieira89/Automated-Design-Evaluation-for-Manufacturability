@@ -7,7 +7,7 @@ Usage
 -----
 As a library::
 
-    from examples.case.heat_sink_example.HeatSink_Optimize import HeatSinkModel
+    from examples.case.heat_sink_example_V2.HeatSink_Optimize import HeatSinkModel
 
     model   = HeatSinkModel(fin_number=8, flow_velocity=1.5)
     results = model()               # run CAD + FEA in-memory
@@ -31,11 +31,8 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from examples.case.heat_sink_example.CAD_heatSink import (
-    build_heat_sink_step_text,
-    generate_heat_sink,
-)
-from examples.case.heat_sink_example.FEA_HeatSink import HeatSinkFEA, HeatSinkResults
+from examples.case.heat_sink_example_V2.CAD_heatSink import build_heat_sink
+from examples.case.heat_sink_example_V2.FEA_HeatSink import HeatSinkFEA, HeatSinkResults
 from physics.convection_rectangular_channel import RectangularChannelConvection
 from physics.heatTransfer_contact_pressure import ContactConductance, ContactSurface
 
@@ -77,13 +74,13 @@ class HeatSinkModel:
     flow_velocity : float
         Mean coolant velocity in the fin channels [m/s].
     fluid_density : float
-        Coolant density [kg/m³].  Default: air at ~60 °C.
+        Coolant density [kg/m³].  Default: water at 20 °C.
     fluid_viscosity : float
-        Dynamic viscosity [Pa·s].  Default: air at ~60 °C.
+        Dynamic viscosity [Pa·s].  Default: water at 20 °C.
     fluid_conductivity : float
-        Thermal conductivity [W/(m·K)].  Default: air at ~60 °C.
+        Thermal conductivity [W/(m·K)].  Default: water at 20 °C.
     fluid_specific_heat : float
-        Specific heat at constant pressure [J/(kg·K)].  Default: air at ~60 °C.
+        Specific heat at constant pressure [J/(kg·K)].  Default: water at 20 °C.
 
     The convection coefficient h(x) is computed via
     ``RectangularChannelConvection`` and varies along the channel length,
@@ -119,12 +116,12 @@ class HeatSinkModel:
         T_base_hot: float = 350.0,
         mesh_size: float = 3.0,
         coord_tol: float = 0.5,
-        # --- Flow / convection (air at ~60 °C defaults) ---
+        # --- Flow / convection (water at 20 °C defaults) ---
         flow_velocity: float = 1.0,            # m/s
-        fluid_density: float = 1.060,          # kg/m³
-        fluid_viscosity: float = 1.96e-5,      # Pa·s
-        fluid_conductivity: float = 0.0281,    # W/(m·K)
-        fluid_specific_heat: float = 1007.0,   # J/(kg·K)
+        fluid_density: float = 998.2,          # kg/m³
+        fluid_viscosity: float = 1.002e-3,     # Pa·s
+        fluid_conductivity: float = 0.598,     # W/(m·K)
+        fluid_specific_heat: float = 4182.0,   # J/(kg·K)
         # --- Contact conductance at base ---
         base_surface_a: ContactSurface = _DEFAULT_AL_SURFACE_MM,
         base_surface_b: ContactSurface = _DEFAULT_AL_SURFACE_MM,
@@ -197,7 +194,7 @@ class HeatSinkModel:
         )
 
         print("Generating CAD geometry …")
-        step_text = build_heat_sink_step_text(
+        step_text = build_heat_sink(
             fin_height=self.fin_height,
             fin_thickness=self.fin_thickness,
             fin_spacing=self.fin_spacing,
@@ -224,15 +221,16 @@ class HeatSinkModel:
         self,
         output_step: str = "heat_sink.step",
         dest_folder: Optional[Path | str] = None,
-    ) -> Path:
-        """Write the current geometry to a STEP file and return its path."""
-        return generate_heat_sink(
+    ) -> None:
+        """Write the current geometry to a STEP file."""
+        build_heat_sink(
             fin_height=self.fin_height,
             fin_thickness=self.fin_thickness,
             fin_spacing=self.fin_spacing,
             base_height=self.base_height,
             fin_number=self.fin_number,
             channel_length=self.channel_length,
+            save=True,
             output_step=output_step,
             dest_folder=dest_folder,
         )
@@ -284,7 +282,7 @@ def run_optimisation() -> None:
         base_height=5.0,
         channel_length=50.0,
         mech_load_pressure=-1.0,
-        flow_velocity=1.0,          # m/s — air coolant
+        flow_velocity=1.0,          # m/s — water coolant
         T_ambient=300.0,
         T_base_hot=350.0,
         mesh_size=4.0,      # coarser mesh for faster optimisation iterations

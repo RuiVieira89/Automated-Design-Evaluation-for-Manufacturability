@@ -64,12 +64,13 @@ Usage
 -----
 As a library::
 
-    from examples.case.CAD_heatSink import generate_heat_sink
-    step_path = generate_heat_sink(fin_number=8, output_step="hs_8fins.step")
+    from examples.case.heat_sink_example_V2.CAD_heatSink import build_heat_sink
+    step_text = build_heat_sink(fin_number=8)                        # in-memory
+    step_text = build_heat_sink(fin_number=8, save=True)             # in-memory + saved
 
-As a script::
+As a script (saves to data/CAD_generated/)::
 
-    conda run -n auto_eval_manuf python examples/case/CAD_heatSink.py
+    conda run -n auto_eval_manuf python examples/case/heat_sink_example_V2/CAD_heatSink.py
 """
 
 from __future__ import annotations
@@ -131,23 +132,48 @@ BC_END_CAP       = "end_cap"           # x-end faces  — no BC (adiabatic / sym
 # Public API
 # ---------------------------------------------------------------------------
 
-def build_heat_sink_step_text(
+def build_heat_sink(
     fin_height: float = 20.0,
     fin_thickness: float = 2.0,
     fin_spacing: float = 5.0,
     base_height: float = 5.0,
     fin_number: int = 6,
     channel_length: float = 50.0,
+    save: bool = False,
+    output_step: str = "heat_sink.step",
+    output_fcstd: Optional[str] = None,
+    dest_folder: Optional[Path | str] = None,
 ) -> str:
     """Build a parametric fin-array heat sink and return the STEP content as a string.
 
-    No files are written.  Pass the returned string directly to
+    By default no files are written. Pass the returned string directly to
     ``HeatSinkFEA(step_content=...)`` for an in-memory CAD→FEA pipeline.
+    Set ``save=True`` to also persist the geometry to disk.
 
     Parameters
     ----------
-    fin_height, fin_thickness, fin_spacing, base_height, fin_number, channel_length:
-        Same geometry parameters as ``generate_heat_sink``.
+    fin_height:
+        Height of each fin above the base plate  [mm].
+    fin_thickness:
+        Thickness of one fin  [mm].
+    fin_spacing:
+        Clear distance between adjacent fins (channel width)  [mm].
+    base_height:
+        Thickness of the base plate  [mm].
+    fin_number:
+        Number of fins.
+    channel_length:
+        Length of the heat sink in the flow direction  [mm].
+    save:
+        Write the STEP file to disk when True.  Default: False.
+    output_step:
+        File name (not path) of the exported STEP file.  Used only when ``save=True``.
+    output_fcstd:
+        File name of an optional FreeCAD .FCStd file.  Pass ``None`` (default) to skip.
+        Requires FreeCAD.  Used only when ``save=True``.
+    dest_folder:
+        Destination directory.  Defaults to ``<repo_root>/data/CAD_generated``.
+        Used only when ``save=True``.
 
     Returns
     -------
@@ -184,74 +210,23 @@ def build_heat_sink_step_text(
     status = writer.Write(str(tmp_path))
     if status != IFSelect_RetDone:
         tmp_path.unlink(missing_ok=True)
-        raise RuntimeError("STEP write failed (in-memory path)")
+        raise RuntimeError("STEP write failed")
 
     raw = tmp_path.read_text()
     tmp_path.unlink(missing_ok=True)
 
-    return _rename_step_faces(raw, base_height=base_height, total_height=total_height)
+    step_text = _rename_step_faces(raw, base_height=base_height, total_height=total_height)
 
+    if save:
+        dest = Path(dest_folder) if dest_folder is not None else _DEFAULT_DEST
+        dest.mkdir(parents=True, exist_ok=True)
+        step_path = dest / output_step
+        step_path.write_text(step_text)
+        print(f"STEP written → {step_path}")
+        if output_fcstd is not None:
+            _write_fcstd(step_path, dest / output_fcstd)
 
-def generate_heat_sink(
-    fin_height: float = 20.0,
-    fin_thickness: float = 2.0,
-    fin_spacing: float = 5.0,
-    base_height: float = 5.0,
-    fin_number: int = 6,
-    channel_length: float = 50.0,
-    output_step: str = "heat_sink.step",
-    output_fcstd: Optional[str] = None,
-    dest_folder: Optional[Path | str] = None,
-) -> Path:
-    """Generate a parametric fin-array heat sink and write it to STEP.
-
-    Parameters
-    ----------
-    fin_height:
-        Height of each fin above the base plate  [mm].
-    fin_thickness:
-        Thickness of one fin  [mm].
-    fin_spacing:
-        Clear distance between adjacent fins (channel width)  [mm].
-    base_height:
-        Thickness of the base plate  [mm].
-    fin_number:
-        Number of fins.
-    channel_length:
-        Length of the heat sink in the flow direction  [mm].
-    output_step:
-        File name (not path) of the exported STEP file.
-    output_fcstd:
-        File name of an optional FreeCAD .FCStd file.
-        Pass ``None`` (default) to skip.  Requires FreeCAD.
-    dest_folder:
-        Destination directory.  Defaults to ``<repo_root>/data/CAD_generated``.
-
-    Returns
-    -------
-    Path
-        Absolute path of the written STEP file.
-    """
-    dest = Path(dest_folder) if dest_folder is not None else _DEFAULT_DEST
-    dest.mkdir(parents=True, exist_ok=True)
-
-    step_text = build_heat_sink_step_text(
-        fin_height=fin_height,
-        fin_thickness=fin_thickness,
-        fin_spacing=fin_spacing,
-        base_height=base_height,
-        fin_number=fin_number,
-        channel_length=channel_length,
-    )
-
-    step_path = dest / output_step
-    step_path.write_text(step_text)
-    print(f"STEP written → {step_path}")
-
-    if output_fcstd is not None:
-        _write_fcstd(step_path, dest / output_fcstd)
-
-    return step_path
+    return step_text
 
 
 # ---------------------------------------------------------------------------
@@ -470,13 +445,14 @@ def _write_fcstd(step_path: Path, fcstd_path: Path) -> None:
 # Script entry-point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    generate_heat_sink(
+    build_heat_sink(
         fin_height=20.0,
         fin_thickness=2.0,
         fin_spacing=5.0,
         base_height=5.0,
         fin_number=6,
         channel_length=50.0,
+        save=True,
         output_step="heat_sink.step",
         output_fcstd=None,           # e.g. "heat_sink.FCStd" to enable
         dest_folder=None,            # defaults to data/CAD_generated/
