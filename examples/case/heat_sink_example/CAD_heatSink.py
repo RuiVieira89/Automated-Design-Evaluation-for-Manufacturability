@@ -131,6 +131,67 @@ BC_END_CAP       = "end_cap"           # x-end faces  — no BC (adiabatic / sym
 # Public API
 # ---------------------------------------------------------------------------
 
+def build_heat_sink_step_text(
+    fin_height: float = 20.0,
+    fin_thickness: float = 2.0,
+    fin_spacing: float = 5.0,
+    base_height: float = 5.0,
+    fin_number: int = 6,
+    channel_length: float = 50.0,
+) -> str:
+    """Build a parametric fin-array heat sink and return the STEP content as a string.
+
+    No files are written.  Pass the returned string directly to
+    ``HeatSinkFEA(step_content=...)`` for an in-memory CAD→FEA pipeline.
+
+    Parameters
+    ----------
+    fin_height, fin_thickness, fin_spacing, base_height, fin_number, channel_length:
+        Same geometry parameters as ``generate_heat_sink``.
+
+    Returns
+    -------
+    str
+        Full STEP file content with BC face names applied.
+    """
+    import tempfile
+
+    total_width  = fin_number * fin_thickness + (fin_number - 1) * fin_spacing
+    total_height = base_height + fin_height
+
+    base = BRepPrimAPI_MakeBox(
+        gp_Pnt(0.0, 0.0, 0.0),
+        channel_length, total_width, base_height,
+    ).Shape()
+
+    compound = base
+    for i in range(fin_number):
+        y0  = i * (fin_thickness + fin_spacing)
+        fin = BRepPrimAPI_MakeBox(
+            gp_Pnt(0.0, y0, base_height),
+            channel_length, fin_thickness, fin_height,
+        ).Shape()
+        fuse = BRepAlgoAPI_Fuse(compound, fin)
+        fuse.Build()
+        compound = fuse.Shape()
+
+    # OCC writer requires a real file path — use a temp file, read back, delete
+    with tempfile.NamedTemporaryFile(suffix=".stp", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+
+    writer = STEPControl_Writer()
+    writer.Transfer(compound, STEPControl_AsIs)
+    status = writer.Write(str(tmp_path))
+    if status != IFSelect_RetDone:
+        tmp_path.unlink(missing_ok=True)
+        raise RuntimeError("STEP write failed (in-memory path)")
+
+    raw = tmp_path.read_text()
+    tmp_path.unlink(missing_ok=True)
+
+    return _rename_step_faces(raw, base_height=base_height, total_height=total_height)
+
+
 def generate_heat_sink(
     fin_height: float = 20.0,
     fin_thickness: float = 2.0,
@@ -174,53 +235,19 @@ def generate_heat_sink(
     dest = Path(dest_folder) if dest_folder is not None else _DEFAULT_DEST
     dest.mkdir(parents=True, exist_ok=True)
 
-    total_width  = fin_number * fin_thickness + (fin_number - 1) * fin_spacing
-    total_height = base_height + fin_height
-
-    # ------------------------------------------------------------------
-    # Build geometry
-    # ------------------------------------------------------------------
-    base = BRepPrimAPI_MakeBox(
-        gp_Pnt(0.0, 0.0, 0.0),
-        channel_length, total_width, base_height,
-    ).Shape()
-
-    compound = base
-    for i in range(fin_number):
-        y0  = i * (fin_thickness + fin_spacing)
-        fin = BRepPrimAPI_MakeBox(
-            gp_Pnt(0.0, y0, base_height),
-            channel_length, fin_thickness, fin_height,
-        ).Shape()
-        fuse = BRepAlgoAPI_Fuse(compound, fin)
-        fuse.Build()
-        compound = fuse.Shape()
-
-    # ------------------------------------------------------------------
-    # Write plain STEP (all face names blank)
-    # ------------------------------------------------------------------
-    step_path = dest / output_step
-    writer = STEPControl_Writer()
-    writer.Transfer(compound, STEPControl_AsIs)
-    status = writer.Write(str(step_path))
-    if status != IFSelect_RetDone:
-        raise RuntimeError(f"STEP write failed for {step_path}")
-
-    # ------------------------------------------------------------------
-    # Post-process: rename ADVANCED_FACE entities with BC group names
-    # ------------------------------------------------------------------
-    raw = step_path.read_text()
-    named = _rename_step_faces(
-        raw,
+    step_text = build_heat_sink_step_text(
+        fin_height=fin_height,
+        fin_thickness=fin_thickness,
+        fin_spacing=fin_spacing,
         base_height=base_height,
-        total_height=total_height,
+        fin_number=fin_number,
+        channel_length=channel_length,
     )
-    step_path.write_text(named)
+
+    step_path = dest / output_step
+    step_path.write_text(step_text)
     print(f"STEP written → {step_path}")
 
-    # ------------------------------------------------------------------
-    # Optional FreeCAD .FCStd export
-    # ------------------------------------------------------------------
     if output_fcstd is not None:
         _write_fcstd(step_path, dest / output_fcstd)
 

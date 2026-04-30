@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import shutil
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -60,19 +61,16 @@ from EasyFEA.Models._utils import ModelType
 from EasyFEA.Simulations import Elastic, Thermal
 
 # ---------------------------------------------------------------------------
-# STEP file paths
-# EasyFEA's Mesh_Import_part requires the extension ".stp"
+# Default STEP file path (used when no step_content is supplied)
+# EasyFEA's Mesh_Import_part requires the ".stp" extension
 # ---------------------------------------------------------------------------
 _STEP_FILE = ROOT / "data" / "CAD_generated" / "heat_sink.step"
-_STP_FILE  = _STEP_FILE.with_suffix(".stp")
 
 # ---------------------------------------------------------------------------
-# Geometry constants  (must match the defaults in CAD_heatSink.py)
+# Default geometry constants  (match CAD_heatSink.py defaults)
 # ---------------------------------------------------------------------------
 _FIN_HEIGHT  = 20.0   # mm
 _BASE_HEIGHT =  5.0   # mm
-_Z_BASE      = _BASE_HEIGHT
-_Z_TOTAL     = _BASE_HEIGHT + _FIN_HEIGHT
 
 # ---------------------------------------------------------------------------
 # Material properties — Aluminium (N, mm, K unit system)
@@ -171,12 +169,19 @@ class HeatSinkFEA:
         Ambient (coolant) temperature [K].
     T_base_hot : float
         Hot-side temperature applied at the base Robin BC [K].
+    fin_height : float
+        Height of each fin [mm]. Must match the CAD geometry.
+    base_height : float
+        Height of the base plate [mm]. Must match the CAD geometry.
     mesh_size : float
         Target element edge length [mm].
     elem_type : ElemType
         Element type (TETRA4 or TETRA10).
     coord_tol : float
         Tolerance for surface node selection [mm].
+    step_content : str | None
+        Raw STEP file text. When provided the geometry is meshed directly
+        from this string (no disk read). When None, ``_STEP_FILE`` is used.
     """
 
     def __init__(
@@ -186,18 +191,24 @@ class HeatSinkFEA:
         h_conv_base: float = 1.0e-4,
         T_ambient: float = 300.0,
         T_base_hot: float = 350.0,
+        fin_height: float = _FIN_HEIGHT,
+        base_height: float = _BASE_HEIGHT,
         mesh_size: float = 3.0,
         elem_type: ElemType = ElemType.TETRA4,
         coord_tol: float = 0.5,
+        step_content: str | None = None,
     ) -> None:
         self.mech_load_pressure = mech_load_pressure
         self.h_conv_fins = h_conv_fins
         self.h_conv_base = h_conv_base
         self.T_ambient = T_ambient
         self.T_base_hot = T_base_hot
+        self.fin_height = fin_height
+        self.base_height = base_height
         self.mesh_size = mesh_size
         self.elem_type = elem_type
         self.coord_tol = coord_tol
+        self.step_content = step_content
 
     def __call__(self, plot: bool = False) -> HeatSinkResults:
         """Run the simulation and return results.
@@ -214,23 +225,39 @@ class HeatSinkFEA:
 
     # ------------------------------------------------------------------
     def _run(self) -> HeatSinkResults:
-        tol = self.coord_tol
+        tol    = self.coord_tol
+        z_base  = self.base_height
+        z_total = self.base_height + self.fin_height
 
-        # 1. Mesh
+        # 1. Mesh — from in-memory STEP text or from the default file on disk
         print("Meshing …")
-        shutil.copy(_STEP_FILE, _STP_FILE)
-        mesher = Mesher()
-        mesh = mesher.Mesh_Import_part(
-            str(_STP_FILE), dim=3, meshSize=self.mesh_size, elemType=self.elem_type
-        )
+        if self.step_content is not None:
+            tmp = tempfile.NamedTemporaryFile(suffix=".stp", delete=False)
+            tmp_path = Path(tmp.name)
+            tmp.write(self.step_content.encode())
+            tmp.close()
+            stp_path = tmp_path
+        else:
+            stp_path = _STEP_FILE.with_suffix(".stp")
+            shutil.copy(_STEP_FILE, stp_path)
+
+        try:
+            mesher = Mesher()
+            mesh = mesher.Mesh_Import_part(
+                str(stp_path), dim=3, meshSize=self.mesh_size, elemType=self.elem_type
+            )
+        finally:
+            if self.step_content is not None:
+                stp_path.unlink(missing_ok=True)
+
         print(f"  Nodes: {mesh.Nn}   Elements: {mesh.Ne}")
         coords = mesh.coord
 
         # 2. Node sets
         nodes_fixed = mesh.Nodes_Conditions(lambda x, y, z: z <= tol)
-        nodes_top   = mesh.Nodes_Conditions(lambda x, y, z: z >= _Z_TOTAL - tol)
+        nodes_top   = mesh.Nodes_Conditions(lambda x, y, z: z >= z_total - tol)
         nodes_fins  = mesh.Nodes_Conditions(
-            lambda x, y, z: (np.abs(z - _Z_BASE) < tol) | (z > _Z_BASE - tol)
+            lambda x, y, z: (np.abs(z - z_base) < tol) | (z > z_base - tol)
         )
 
         # 3. Mechanical simulation
