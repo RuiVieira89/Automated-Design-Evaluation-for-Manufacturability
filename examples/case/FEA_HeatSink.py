@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
-matplotlib.use("Agg")   # off-screen rendering; remove if a display is available
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sp
@@ -100,7 +100,7 @@ print("Meshing …")
 shutil.copy(STEP_FILE, STP_FILE)
 
 mesher = Mesher()
-mesh = mesher.Mesh_Import_part(str(STP_FILE), meshSize=MESH_SIZE, elemType=ELEM_TYPE)
+mesh = mesher.Mesh_Import_part(str(STP_FILE), dim=3, meshSize=MESH_SIZE, elemType=ELEM_TYPE)
 
 print(f"  Nodes: {mesh.Nn}   Elements: {mesh.Ne}")
 
@@ -301,10 +301,13 @@ print(f"  Max temperature : {np.max(T_field):.2f} K")
 # ===========================================================================
 # 5. RESULTS & PLOTS
 # ===========================================================================
-fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+fig = plt.figure(figsize=(14, 10))
+ax_svm  = fig.add_subplot(2, 2, 1, projection="3d")
+ax_disp = fig.add_subplot(2, 2, 2, projection="3d")
+ax_temp = fig.add_subplot(2, 2, 3, projection="3d")
 
 # --- von Mises stress ---
-ax = axes[0, 0]
+ax = ax_svm
 Display.Plot_Result(
     simu_mech, "Svm",
     nodeValues=True,
@@ -316,7 +319,7 @@ max_svm = np.max(svm)
 ax.set_title(f"von Mises stress  (max = {max_svm:.2f} N/mm²)")
 
 # --- Displacement norm ---
-ax = axes[0, 1]
+ax = ax_disp
 Display.Plot_Result(
     simu_mech, "displacement_norm",
     nodeValues=True,
@@ -328,7 +331,7 @@ max_disp = np.max(u_norm)
 ax.set_title(f"Displacement norm  (max = {max_disp:.4f} mm)")
 
 # --- Temperature field ---
-ax = axes[1, 0]
+ax = ax_temp
 Display.Plot_Result(
     simu_therm, "thermal",
     nodeValues=True,
@@ -339,7 +342,7 @@ Display.Plot_Result(
 ax.set_title(f"Temperature  (min={np.min(T_field):.1f} K, max={np.max(T_field):.1f} K)")
 
 # --- Optimization metrics summary ---
-ax = axes[1, 1]
+ax = fig.add_subplot(2, 2, 4)
 ax.axis("off")
 summary = (
     "Optimization metrics\n"
