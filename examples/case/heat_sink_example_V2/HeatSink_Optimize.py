@@ -22,6 +22,8 @@ As a script (runs the built-in scipy optimisation example)::
 from __future__ import annotations
 
 import sys
+import warnings
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -237,88 +239,249 @@ class HeatSinkModel:
 
 
 # ---------------------------------------------------------------------------
-# Optimisation example
+# Multi-objective optimisation: heat transfer vs. mechanical stress
 # ---------------------------------------------------------------------------
 
-def _objective(x: list[float], fixed: dict) -> float:
-    """Scalar objective for scipy: minimise max temperature.
+@dataclass
+class DesignPoint:
+    """Single evaluated design in the (mech_load_pressure, fin_thickness) space."""
+    mech_load_pressure: float   # N/mm²  (negative = compressive)
+    fin_thickness:      float   # mm
+    delta_T:            float   # K    = T_max − T_ambient
+    max_stress:         float   # N/mm² = peak von Mises stress
 
-    Design variables (x)
-    --------------------
-    x[0] : fin_height    [mm]   bounds (10, 40)
-    x[1] : fin_spacing   [mm]   bounds (2, 10)
-    x[2] : fin_number    int    bounds (4, 12)  — rounded inside
-    """
-    fin_height  = float(x[0])
-    fin_spacing = float(x[1])
-    fin_number  = max(2, int(round(x[2])))
 
-    model = HeatSinkModel(
-        fin_height=fin_height,
-        fin_spacing=fin_spacing,
-        fin_number=fin_number,
-        **fixed,
-    )
+def _evaluate(
+    mech_load_pressure: float,
+    fin_thickness: float,
+    fixed: dict,
+) -> DesignPoint | None:
+    """Run one FEA evaluation. Returns None on failure."""
     try:
-        results = model()
-        val = results.max_temperature
+        model = HeatSinkModel(
+            mech_load_pressure=mech_load_pressure,
+            fin_thickness=fin_thickness,
+            **fixed,
+        )
+        r = model()
+        return DesignPoint(
+            mech_load_pressure=mech_load_pressure,
+            fin_thickness=fin_thickness,
+            delta_T=r.delta_T,
+            max_stress=r.max_stress,
+        )
     except Exception as exc:
-        print(f"  [warn] evaluation failed ({exc}); returning large penalty")
-        val = 1e6
+        warnings.warn(
+            f"Evaluation failed (p={mech_load_pressure:.3g} N/mm², "
+            f"t={fin_thickness:.2f} mm): {exc}"
+        )
+        return None
 
-    print(
-        f"  fin_height={fin_height:.1f}  fin_spacing={fin_spacing:.1f}"
-        f"  fin_number={fin_number}  → T_max={val:.2f} K"
+
+def _pareto_front(points: list[DesignPoint]) -> list[DesignPoint]:
+    """Return the non-dominated subset, sorted by delta_T ascending."""
+    front = []
+    for candidate in points:
+        dominated = any(
+            other.delta_T    <= candidate.delta_T
+            and other.max_stress <= candidate.max_stress
+            and (other.delta_T < candidate.delta_T or other.max_stress < candidate.max_stress)
+            for other in points
+        )
+        if not dominated:
+            front.append(candidate)
+    return sorted(front, key=lambda p: p.delta_T)
+
+
+def _plot_pareto(
+    all_points: list[DesignPoint],
+    pareto: list[DesignPoint],
+    best: DesignPoint,
+) -> None:
+    import matplotlib
+    matplotlib.use("TkAgg")
+    import matplotlib.pyplot as plt
+
+    fig, (ax_obj, ax_des) = plt.subplots(1, 2, figsize=(14, 5))
+    fig.suptitle(
+        "Multi-objective optimisation — heat transfer vs. mechanical stress",
+        fontsize=13,
     )
-    return val
+
+    # --- objective space ---
+    ax_obj.scatter(
+        [p.max_stress for p in all_points],
+        [p.delta_T    for p in all_points],
+        c="lightgrey", edgecolors="grey", s=40, zorder=2, label="Evaluated",
+    )
+    ax_obj.plot(
+        [p.max_stress for p in pareto],
+        [p.delta_T    for p in pareto],
+        "o-", color="steelblue", lw=2, ms=8, zorder=3, label="Pareto front",
+    )
+    ax_obj.scatter(
+        [best.max_stress], [best.delta_T],
+        marker="*", s=250, color="tomato", zorder=4, label="Best compromise",
+    )
+    ax_obj.set_xlabel("Max von Mises stress  σ  [N/mm²]")
+    ax_obj.set_ylabel("Temperature rise  ΔT  [K]")
+    ax_obj.set_title("Objective space")
+    ax_obj.legend()
+    ax_obj.grid(True, alpha=0.3)
+
+    # --- design space ---
+    sc = ax_des.scatter(
+        [p.fin_thickness            for p in all_points],
+        [abs(p.mech_load_pressure)  for p in all_points],
+        c=[p.delta_T for p in all_points],
+        cmap="coolwarm_r", s=60, edgecolors="grey", zorder=2,
+    )
+    ax_des.scatter(
+        [p.fin_thickness           for p in pareto],
+        [abs(p.mech_load_pressure) for p in pareto],
+        s=100, facecolors="none", edgecolors="steelblue",
+        lw=2, zorder=3, label="Pareto front",
+    )
+    ax_des.scatter(
+        [best.fin_thickness], [abs(best.mech_load_pressure)],
+        marker="*", s=250, color="tomato", zorder=4, label="Best compromise",
+    )
+    plt.colorbar(sc, ax=ax_des, label="ΔT  [K]")
+    ax_des.set_xlabel("Fin thickness  [mm]")
+    ax_des.set_ylabel("|Load pressure|  [N/mm²]")
+    ax_des.set_title("Design space  (colour = ΔT)")
+    ax_des.legend()
+    ax_des.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.show()
 
 
 def run_optimisation() -> None:
-    """Minimise maximum temperature using scipy Nelder-Mead."""
+    """Multi-objective Pareto optimisation: minimise ΔT and max von Mises stress.
+
+    Design variables
+    ----------------
+    mech_load_pressure ∈ [−5.0, −0.5] N/mm²   (compressive, always negative)
+    fin_thickness      ∈ [  1.0,  4.0] mm
+
+    Objectives
+    ----------
+    f₁ = ΔT     = T_max − T_ambient  [K]      minimise → maximise heat transfer
+    f₂ = σ_max  = peak von Mises stress [N/mm²]  minimise → reduce structural risk
+
+    Method
+    ------
+    Weighted-sum scalarisation  f = w·(ΔT/ΔT₀) + (1−w)·(σ/σ₀)  for seven
+    evenly-spaced weights w ∈ [0, 1].  Each sub-problem is solved with
+    Nelder-Mead (warm-started from the previous solution).  All evaluated
+    points are pooled and Pareto-filtered at the end.  The best compromise is
+    the Pareto point closest to the normalised utopia point (origin).
+    """
     from scipy.optimize import minimize
+    from physics.material_properties.water import water as _water
 
+    w20 = _water(20.0, unit="C")
+
+    # Fixed geometry / flow / thermal parameters
     fixed = dict(
-        fin_thickness=2.0,
+        fin_height=20.0,
+        fin_spacing=5.0,
         base_height=5.0,
+        fin_number=6,
         channel_length=50.0,
-        mech_load_pressure=-1.0,
-        flow_velocity=1.0,          # m/s — water coolant
-        T_ambient=300.0,
-        T_base_hot=350.0,
-        mesh_size=4.0,      # coarser mesh for faster optimisation iterations
+        T_ambient=293.15,                       # 20 °C
+        T_base_hot=353.15,                      # 80 °C
+        mesh_size=4.0,                          # coarser for speed
+        flow_velocity=0.5,                      # m/s — water coolant
+        fluid_density=w20.density,
+        fluid_viscosity=w20.dynamic_viscosity,
+        fluid_conductivity=w20.thermal_conductivity,
+        fluid_specific_heat=w20.specific_heat,
     )
 
-    x0     = [20.0, 5.0, 6.0]
-    bounds = [(10.0, 40.0), (2.0, 10.0), (4.0, 12.0)]
+    P_MIN, P_MAX = 0.5, 5.0   # |pressure| bounds [N/mm²]
+    T_MIN, T_MAX = 1.0, 4.0   # fin_thickness bounds [mm]
 
     print("=" * 60)
-    print("Optimisation: minimise max temperature")
-    print("  variables : fin_height, fin_spacing, fin_number")
+    print("Multi-objective optimisation")
+    print(f"  x[0] = mech_load_pressure  ∈ [−{P_MAX}, −{P_MIN}] N/mm²")
+    print(f"  x[1] = fin_thickness       ∈ [ {T_MIN},  {T_MAX}] mm")
+    print("  f[0] = ΔT      (minimise) — maximise heat transfer")
+    print("  f[1] = σ_max   (minimise) — minimise mechanical stress")
     print("=" * 60)
 
-    result = minimize(
-        _objective,
-        x0,
-        args=(fixed,),
-        method="Nelder-Mead",
-        bounds=bounds,
-        options={"maxiter": 30, "xatol": 1.0, "fatol": 0.5, "disp": True},
+    # Reference evaluation for objective normalisation
+    print("\n[ref] p = −1.0 N/mm²   t = 2.0 mm …")
+    ref = _evaluate(-1.0, 2.0, fixed)
+    if ref is None:
+        raise RuntimeError("Reference evaluation failed; cannot proceed.")
+    dT_ref = ref.delta_T
+    s_ref  = ref.max_stress
+    print(f"      ΔT₀ = {dT_ref:.2f} K   σ₀ = {s_ref:.4f} N/mm²\n")
+
+    all_points: list[DesignPoint] = [ref]
+
+    # Weighted-sum Pareto sweep
+    weights = np.linspace(0.0, 1.0, 7)    # weight on ΔT objective
+    x0 = np.array([1.0, 2.0])             # [|p|, fin_thickness]
+
+    for i, w_T in enumerate(weights):
+        w_s = 1.0 - w_T
+        print(f"[{i + 1}/{len(weights)}] w_ΔT = {w_T:.2f}   w_σ = {w_s:.2f}")
+
+        def _obj(x, w_T=w_T, w_s=w_s):
+            p_mag = float(np.clip(x[0], P_MIN, P_MAX))
+            t     = float(np.clip(x[1], T_MIN, T_MAX))
+            pt = _evaluate(-p_mag, t, fixed)
+            if pt is None:
+                return 1e6
+            all_points.append(pt)
+            val = w_T * pt.delta_T / dT_ref + w_s * pt.max_stress / s_ref
+            print(
+                f"    p = {pt.mech_load_pressure:+.2f} N/mm²  "
+                f"t = {pt.fin_thickness:.2f} mm  →  "
+                f"ΔT = {pt.delta_T:.2f} K   σ = {pt.max_stress:.4f} N/mm²   f = {val:.4f}"
+            )
+            return val
+
+        res = minimize(
+            _obj, x0, method="Nelder-Mead",
+            options={"maxiter": 25, "xatol": 0.1, "fatol": 0.02, "disp": False},
+        )
+        x0 = res.x   # warm-start next weight from current solution
+
+    print(f"\nTotal evaluations : {len(all_points)}")
+
+    # Pareto filtering
+    pareto = _pareto_front(all_points)
+    print(f"Pareto-optimal    : {len(pareto)}\n")
+
+    # Best compromise: shortest normalised distance from utopia point (origin)
+    best = min(
+        pareto,
+        key=lambda p: np.hypot(p.delta_T / dT_ref, p.max_stress / s_ref),
     )
 
-    print("\nOptimisation result:")
-    print(f"  fin_height  = {result.x[0]:.2f} mm")
-    print(f"  fin_spacing = {result.x[1]:.2f} mm")
-    print(f"  fin_number  = {int(round(result.x[2]))}")
-    print(f"  T_max       = {result.fun:.2f} K")
+    print(f"{'p [N/mm²]':>12}  {'t [mm]':>8}  {'ΔT [K]':>9}  {'σ [N/mm²]':>12}  {'':}")
+    print("-" * 55)
+    for pt in pareto:
+        marker = " ← best compromise" if pt is best else ""
+        print(
+            f"{pt.mech_load_pressure:>12.3f}  {pt.fin_thickness:>8.2f}"
+            f"  {pt.delta_T:>9.2f}  {pt.max_stress:>12.4f}{marker}"
+        )
 
-    print("\nRe-running optimal design with full mesh + plot …")
-    best = HeatSinkModel(
-        fin_height=result.x[0],
-        fin_spacing=result.x[1],
-        fin_number=int(round(result.x[2])),
+    _plot_pareto(all_points, pareto, best)
+
+    # Full-mesh re-run of best compromise design
+    print("\nRe-running best compromise with full mesh …")
+    model = HeatSinkModel(
+        mech_load_pressure=best.mech_load_pressure,
+        fin_thickness=best.fin_thickness,
         **{k: v for k, v in fixed.items() if k != "mesh_size"},
     )
-    best(plot=True)
+    model(plot=True)
 
 
 if __name__ == "__main__":
