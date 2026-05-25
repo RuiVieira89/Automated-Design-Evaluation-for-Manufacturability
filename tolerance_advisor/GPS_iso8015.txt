@@ -1,0 +1,143 @@
+# ISO 8015 — The Foundational Standard for Geometric Tolerancing
+
+## What Is ISO 8015?
+
+ISO 8015 is the **fundamental standard for the ISO Geometrical Product Specifications (GPS) system**. 
+It defines the core rules and principles that govern how all other GPS standards — 
+covering dimensions, tolerances, surface texture, and geometric characteristics — are to be interpreted. 
+Think of it as the "grammar rulebook" for engineering drawings within the ISO framework.
+
+Its full title is: *Geometrical product specifications (GPS) — Fundamentals — Concepts, principles and rules.*
+
+It does not define specific tolerance values or symbols. Instead, it establishes the **default interpretation rules** 
+that apply whenever GPS symbols appear on a technical drawing or in a CAD model's PMI (Product and Manufacturing Information).
+
+---
+
+## Core Principles Defined by ISO 8015
+
+### 1. The Principle of Independency
+This is the most consequential rule in the standard. It states that **each geometric tolerance requirement on a drawing is 
+independent and must be fulfilled separately**, unless a specific dependency is explicitly indicated.
+
+In practice: a size tolerance and a form tolerance on the same feature do not interact unless you explicitly invoke a modifier 
+like the envelope requirement (indicated by the ⓔ symbol). This is a direct departure from the older ASME/ANSI approach, where Rule #1 
+(the envelope principle) applies by default.
+
+### 2. The Concept of Operators
+ISO 8015 introduces the idea that a GPS specification is a formal **operator** — a defined sequence of operations 
+(partition, extraction, filtration, association, evaluation) applied to a real physical surface to assess conformance. 
+This makes the standard the theoretical backbone for CMM measurement and digital inspection workflows.
+
+### 3. Duality Principle
+Every GPS specification has two sides: a **specification operator** (what the designer intends) and a **verification operator** (how it is measured). 
+ISO 8015 establishes that these two must correspond, which is critical for avoiding ambiguity between design intent and quality inspection.
+
+### 4. Default Reference Condition
+The standard defines that, by default, all GPS specifications apply at **normal ambient conditions** (20°C, standard atmospheric pressure), 
+which matters for precision components where thermal expansion is a real concern.
+
+---
+
+## What You Actually Get From Using ISO 8015
+
+| Benefit | Practical Outcome |
+|---|---|
+| Unambiguous drawing interpretation | Every engineer, supplier, or CMM program reads the same drawing the same way |
+| Independency by default | Form and size tolerances are decoupled unless you choose otherwise |
+| Foundation for GD&T consistency | All GPS symbol standards (ISO 1101, ISO 14405, etc.) inherit its rules |
+| Measurement traceability | Links design specification to a defined verification method |
+| Legal and contractual clarity | Drawings referencing ISO 8015 have a defined, auditable interpretation basis |
+
+---
+
+## How It Is Used in Practice
+
+ISO 8015 is **invoked by reference**, typically in the drawing title block or general notes, with a statement such as:
+
+> *"Tolerancing according to ISO 8015"*
+
+Once invoked, it activates the independency principle and all default GPS interpretation rules across the entire drawing. 
+Individual features can then override defaults using explicit modifiers:
+
+- **ⓔ** — Envelope requirement (overrides independency for that feature, linking size and form)
+- **Ⓘ** — Independency explicitly restated (rarely needed, since it is the default)
+- **CZ**, **SZ** — Combined zone or separate zone modifiers for pattern tolerances
+- Datum feature indicators and material condition modifiers (**Ⓜ**, **Ⓛ**) governed by ISO 2692
+
+A typical workflow looks like this:
+
+```
+Drawing title block → references ISO 8015
+    ↓
+Independency principle applies globally
+    ↓
+Designer adds GD&T callouts per ISO 1101 (form, orientation, location)
+    ↓
+Size tolerances per ISO 14405 (linear sizes, including ⓔ where needed)
+    ↓
+CMM inspection program mirrors the specification operators
+    ↓
+Conformance assessed feature by feature, independently
+```
+
+---
+
+## When Should You Use ISO 8015?
+
+### Use it when:
+- Your supply chain is **international**, particularly European or Asian, where ISO GPS is the norm
+- You are working with **precision mechanical components** where the interaction between size and form must be explicitly controlled rather than assumed
+- You want **drawings that are contractually unambiguous** — ISO 8015 eliminates the "it depends on interpretation" problem
+- You are implementing **model-based definition (MBD)** or digital PMI workflows, where formal operator definitions are essential
+- You are designing components that will be **CMM-inspected**, since the operator concept maps directly to measurement routines
+
+### Be cautious or add explicit overrides when:
+- Your machinists or suppliers are trained on **ASME Y14.5**, where the envelope principle is the default — 
+the independency principle can surprise them and lead to over- or under-inspection
+- You are tolerancing **mating fits** (shafts and bores) where size and form interaction matters for assembly — 
+explicitly add the ⓔ modifier to avoid the independency default leaving form uncontrolled relative to the mating condition
+- You are working in a **mixed-standard environment** — clearly document which standard governs which drawing set
+
+---
+
+## ISO 8015 in the Broader GPS Framework
+
+ISO 8015 sits at the top of a structured hierarchy:
+
+```
+ISO 8015  ←  Fundamental rules and principles
+    │
+    ├── ISO 1101   ←  Geometric tolerances (form, orientation, location, run-out)
+    ├── ISO 14405  ←  Dimensional tolerances (linear and angular sizes)
+    ├── ISO 2692   ←  Maximum/least material requirements
+    ├── ISO 5459   ←  Datum systems
+    └── ISO 1302   ←  Surface texture indication
+```
+
+No other GPS standard overrides ISO 8015 unless explicitly stated. It is the non-negotiable foundation.
+
+---
+
+## Relevance to ML-Assisted Design Workflows
+
+In the context of ML for design for manufacturing, ISO 8015 has a specific relevance: 
+any machine learning model that reads, generates, or validates GD&T annotations on drawings or in PMI must be trained 
+on data that respects the independency principle. A common failure mode in automated drawing parsing or tolerance stack-up tools 
+is assuming ASME Rule #1 when the drawing is governed by ISO 8015 — leading to incorrect conformance predictions. 
+If you are building or deploying ML tools for tolerance analysis or drawing comprehension, the GPS standard in force must be an explicit input feature.
+
+---
+
+## Concrete Next Step
+
+If you are standardising a design workflow or supplier quality process, the most practical immediate action is:
+
+1. **Audit your current drawing title blocks** — confirm whether ISO 8015 or ASME Y14.5 is declared, 
+and whether it matches your team's actual interpretation habits.
+2. **Add explicit ⓔ modifiers** to all cylindrical fits and mating features where envelope behavior is intended, 
+rather than relying on any assumed default.
+3. **Align your CMM inspection templates** with the GPS operator sequence so that measurement programs directly 
+reflect drawing intent under ISO 8015 rules.
+
+This removes the single largest source of ambiguity between design, manufacturing, and quality inspection in precision mechanical work.

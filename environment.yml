@@ -1,0 +1,15 @@
+name: auto_eval_manuf
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pythonocc-core
+  - numpy
+  - pyvista
+  - matplotlib
+  - pytest
+  - scipy
+  - pyyaml
+  - pip
+  - pip:
+      - EasyFEA

@@ -83,7 +83,12 @@ coverage.xml
 
 *.log
 *.docx#
+*.odt#
 
 .vscode
 
 activate_env.sh
+
+data/CAD_generated
+
+.DS_Store

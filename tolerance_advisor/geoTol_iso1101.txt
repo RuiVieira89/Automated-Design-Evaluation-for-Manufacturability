@@ -1,0 +1,120 @@
+# ISO 1101 — Geometric Tolerancing for Mechanical Engineers
+
+## What Is ISO 1101?
+
+ISO 1101 is the foundational international standard for **Geometric Dimensioning and Tolerancing (GD&T)** 
+within the ISO GPS (Geometrical Product Specifications) framework. 
+It defines a symbolic language for specifying permissible variations in the **form, orientation, location, and run-out** of geometric features 
+on mechanical parts and assemblies.
+
+It answers a critical design question: *not just what size a feature must be, but what shape and position it must occupy in space.*
+
+---
+
+## What the Standard Actually Gives You
+
+### 1. A Symbolic Grammar for Feature Control
+ISO 1101 defines **feature control frames** — structured annotations placed on engineering drawings or 3D models (PMI) that encode:
+
+- The **characteristic** being controlled (flatness, perpendicularity, true position, etc.)
+- The **tolerance value** and its zone geometry (cylindrical, planar, spherical)
+- The **datum reference frame** (A, B, C) that anchors the measurement
+
+### 2. The Five Tolerance Categories
+
+| Category | Characteristics | Controls |
+|---|---|---|
+| **Form** | Straightness, Flatness, Circularity, Cylindricity | Shape of a single feature, no datum needed |
+| **Orientation** | Parallelism, Perpendicularity, Angularity | Angular relationship to a datum |
+| **Location** | Position, Concentricity, Symmetry | Feature location relative to datums |
+| **Run-out** | Circular run-out, Total run-out | Surface variation during rotation |
+| **Profile** | Profile of a line, Profile of a surface | Complex or free-form surface control |
+
+### 3. Tolerance Zone Definitions
+Each characteristic has a precisely defined **tolerance zone geometry** — the region within which the real feature must lie. 
+For example, a cylindrical position tolerance zone is a cylinder of diameter *t* around the true position axis, 
+whereas a flatness zone is two parallel planes separated by *t*. This precision eliminates the ambiguity of coordinate tolerancing.
+
+### 4. Datum System Rules
+The standard defines how datums are established from real surfaces (primary, secondary, tertiary), 
+which directly governs how parts are **fixtured for inspection and machining** — 
+connecting design intent directly to production and measurement.
+
+---
+
+## How It Is Used in Practice
+
+### On the Drawing / Model
+Engineers annotate features with feature control frames at the point of design, either on 2D drawings or as 3D Model-Based Definition (MBD) annotations 
+embedded in the CAD file (linked to ISO 16792 for MBD practice).
+
+### In Process Planning
+Machinists and process engineers read GD&T to determine:
+- Required **fixturing and datum setup** for CNC machining
+- Which features must be machined in a **single setup** to hold orientation/location tolerances
+- Whether **grinding, honing, or precision boring** is needed versus standard milling
+
+### In Inspection and Metrology
+CMM (Coordinate Measuring Machine) programs are built directly from datum reference frames and tolerance zones defined per ISO 1101. 
+This creates a direct, unambiguous link from design specification to pass/fail measurement.
+
+### In Assembly Engineering
+Position and orientation tolerances on mating features directly feed **tolerance stack-up analysis**, 
+allowing engineers to predict whether assemblies will fit and function across the full manufacturing variation envelope.
+
+---
+
+## When You Should Use ISO 1101
+
+**Use it whenever:**
+- A feature's **function depends on its shape or relative position**, not just its size 
+(bearing bores, sealing surfaces, locating pins, threaded interfaces)
+- You are designing for **interchangeable manufacturing** across suppliers or production sites
+- Coordinate tolerances (+/- on X, Y dimensions) are **ambiguous or overly restrictive** — 
+GD&T typically produces a **57% larger tolerance zone** for hole position compared to square coordinate tolerancing, 
+reducing scrap without relaxing functional requirements
+- You need to specify **datum-controlled inspection** to ensure measurements are repeatable and supplier-independent
+- Parts will be inspected on a **CMM or with optical metrology**
+
+**Do not default to ISO 1101 when:**
+- The part is a simple, non-functional bracket where linear dimensions fully capture the requirement — 
+unnecessary GD&T adds drawing complexity with no functional return
+- Your supply chain lacks the metrology capability to measure and report geometric characteristics — 
+a tolerance that cannot be inspected provides no quality assurance
+
+---
+
+## ISO 1101 in the Broader GPS Framework
+
+ISO 1101 does not stand alone. It is the central standard in a system:
+
+- **ISO 5459** — Datum systems (how datums are physically established)
+- **ISO 2692** — Maximum Material Condition (MMC) and Least Material Condition (LMC) modifiers, 
+which allow tolerance to increase as features depart from their critical size limit
+- **ISO 1660** — Profile tolerancing for complex surfaces
+- **ISO 14405** — Linear size specifications (complements 1101 for dimensional tolerances)
+- **ISO 16792** — Technical product documentation for MBD / 3D annotations
+
+Understanding ISO 1101 in isolation is useful; deploying it effectively requires at minimum a working knowledge of ISO 5459 and ISO 2692.
+
+---
+
+## Where ML Intersects with ISO 1101
+
+This is directly relevant to the design-for-manufacturing focus of this assistant:
+
+- **Automated GD&T suggestion:** ML models trained on existing engineering drawings can propose appropriate geometric tolerances for new features 
+based on functional context — this is an active research area, with early commercial tools appearing in CAD platforms
+- **Tolerance stack-up automation:** ML-assisted tolerance analysis can flag assemblies where ISO 1101 specifications, when combined, 
+produce unacceptable yield rates before production starts
+- **CMM data analytics:** ML applied to historical CMM measurement data (geometric deviations per ISO 1101 characteristics) 
+can identify systematic process drift, supplier signatures, and predict out-of-tolerance events — turning inspection data into process intelligence
+
+---
+
+## Concrete Recommendation
+
+If you are establishing or auditing a GD&T practice in a mechanical engineering team, the most impactful immediate step is to 
+**align datum reference frame selection with your machining and inspection fixturing** — this is where the largest gap typically 
+exists between design intent and manufactured result. A tolerance correctly specified per ISO 1101 but measured from a different 
+datum than the one used in machining will produce false rejects or miss real defects. Start there before introducing any tooling or automation.

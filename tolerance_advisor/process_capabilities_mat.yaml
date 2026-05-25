@@ -1,0 +1,529 @@
+# Process capability database — material-specific parameters.
+# Human-editable YAML — add or extend process entries here.
+#
+# Schema
+# ------
+# Each process entry has process-level keys (typical_it_grade, iso_it_grades,
+# min_feature_size_mm) and a `materials` mapping.  Under each material key,
+# `surface_roughness_ra_um` and `dimensional_range_mm` reflect the achievable
+# values specifically for that material–process combination.
+
+CNC_turning:
+  typical_it_grade: "IT8"
+  iso_it_grades: ["IT6", "IT7", "IT8", "IT9"]
+  min_feature_size_mm: 0.5
+  materials:
+    steel:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [1, 500]
+    aluminium:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [1, 500]
+    brass:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [1, 500]
+    titanium:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [5, 400]
+
+sand_casting:
+  typical_it_grade: "IT14"
+  iso_it_grades: ["IT12", "IT13", "IT14", "IT15", "IT16"]
+  min_feature_size_mm: 3.0
+  materials:
+    cast_iron:
+      surface_roughness_ra_um: [12.5, 25.0]
+      dimensional_range_mm: [10, 2000]
+    aluminium:
+      surface_roughness_ra_um: [6.3, 12.5, 25.0]
+      dimensional_range_mm: [10, 2000]
+    bronze:
+      surface_roughness_ra_um: [12.5, 25.0]
+      dimensional_range_mm: [10, 2000]
+
+injection_moulding:
+  typical_it_grade: "IT12"
+  iso_it_grades: ["IT10", "IT11", "IT12", "IT13"]
+  min_feature_size_mm: 0.5
+  materials:
+    ABS:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [0.5, 800]
+    PA6:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [0.5, 600]
+    POM:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [0.5, 500]
+    PP:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [0.5, 800]
+
+cylindrical_grinding:
+  typical_it_grade: "IT5"
+  iso_it_grades: ["IT4", "IT5", "IT6"]
+  min_feature_size_mm: 1.0
+  materials:
+    hardened_steel:
+      surface_roughness_ra_um: [0.1, 0.4, 0.8]
+      dimensional_range_mm: [3, 300]
+    tool_steel:
+      surface_roughness_ra_um: [0.1, 0.4, 0.8]
+      dimensional_range_mm: [3, 300]
+
+# ---------------------------------------------------------------------------
+# Machining — material removal
+# ---------------------------------------------------------------------------
+
+CNC_milling:
+  typical_it_grade: "IT9"
+  iso_it_grades: ["IT7", "IT8", "IT9", "IT10"]
+  min_feature_size_mm: 0.5
+  materials:
+    steel:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2, 6.3]
+      dimensional_range_mm: [1, 2000]
+    aluminium:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6, 3.2]
+      dimensional_range_mm: [1, 2000]
+    brass:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [1, 1000]
+    titanium:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [5, 1000]
+    plastics:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [1, 1500]
+
+drilling:
+  typical_it_grade: "IT11"
+  iso_it_grades: ["IT10", "IT11", "IT12"]
+  min_feature_size_mm: 0.5
+  materials:
+    steel:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [0.5, 80]
+    aluminium:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [0.5, 100]
+    cast_iron:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [0.5, 80]
+    brass:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [0.5, 100]
+
+reaming:
+  typical_it_grade: "IT7"
+  iso_it_grades: ["IT6", "IT7", "IT8"]
+  min_feature_size_mm: 1.0
+  materials:
+    steel:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [3, 80]
+    aluminium:
+      surface_roughness_ra_um: [0.2, 0.4, 0.8]
+      dimensional_range_mm: [3, 80]
+    cast_iron:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [3, 80]
+    brass:
+      surface_roughness_ra_um: [0.2, 0.4, 0.8]
+      dimensional_range_mm: [3, 80]
+
+boring:
+  typical_it_grade: "IT7"
+  iso_it_grades: ["IT6", "IT7", "IT8", "IT9"]
+  min_feature_size_mm: 5.0
+  materials:
+    steel:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [5, 1000]
+    aluminium:
+      surface_roughness_ra_um: [0.2, 0.4, 0.8]
+      dimensional_range_mm: [5, 1000]
+    cast_iron:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [5, 800]
+
+broaching:
+  typical_it_grade: "IT7"
+  iso_it_grades: ["IT6", "IT7", "IT8"]
+  min_feature_size_mm: 3.0
+  materials:
+    steel:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [5, 300]
+    cast_iron:
+      surface_roughness_ra_um: [0.8, 1.6]
+      dimensional_range_mm: [5, 300]
+    aluminium:
+      surface_roughness_ra_um: [0.2, 0.4, 0.8]
+      dimensional_range_mm: [5, 300]
+
+thread_cutting:
+  typical_it_grade: "IT8"
+  iso_it_grades: ["IT7", "IT8", "IT9"]
+  min_feature_size_mm: 1.0
+  materials:
+    steel:
+      surface_roughness_ra_um: [1.6, 3.2]
+      dimensional_range_mm: [1, 200]
+    aluminium:
+      surface_roughness_ra_um: [0.8, 1.6]
+      dimensional_range_mm: [1, 200]
+    brass:
+      surface_roughness_ra_um: [0.8, 1.6]
+      dimensional_range_mm: [1, 200]
+    stainless_steel:
+      surface_roughness_ra_um: [1.6, 3.2]
+      dimensional_range_mm: [1, 200]
+
+# ---------------------------------------------------------------------------
+# Grinding and superfinishing
+# ---------------------------------------------------------------------------
+
+surface_grinding:
+  typical_it_grade: "IT6"
+  iso_it_grades: ["IT5", "IT6", "IT7"]
+  min_feature_size_mm: 1.0
+  materials:
+    hardened_steel:
+      surface_roughness_ra_um: [0.1, 0.4, 0.8]
+      dimensional_range_mm: [5, 1500]
+    tool_steel:
+      surface_roughness_ra_um: [0.1, 0.4, 0.8]
+      dimensional_range_mm: [5, 1000]
+    cast_iron:
+      surface_roughness_ra_um: [0.2, 0.4, 0.8]
+      dimensional_range_mm: [5, 1500]
+
+honing:
+  typical_it_grade: "IT5"
+  iso_it_grades: ["IT4", "IT5", "IT6"]
+  min_feature_size_mm: 5.0
+  materials:
+    hardened_steel:
+      surface_roughness_ra_um: [0.025, 0.1, 0.4]
+      dimensional_range_mm: [5, 500]
+    cast_iron:
+      surface_roughness_ra_um: [0.025, 0.1, 0.4]
+      dimensional_range_mm: [5, 500]
+    steel:
+      surface_roughness_ra_um: [0.05, 0.1, 0.4]
+      dimensional_range_mm: [5, 500]
+
+lapping:
+  typical_it_grade: "IT4"
+  iso_it_grades: ["IT3", "IT4", "IT5"]
+  min_feature_size_mm: 5.0
+  materials:
+    hardened_steel:
+      surface_roughness_ra_um: [0.006, 0.025, 0.1]
+      dimensional_range_mm: [5, 300]
+    ceramics:
+      surface_roughness_ra_um: [0.006, 0.025, 0.05]
+      dimensional_range_mm: [5, 200]
+    glass:
+      surface_roughness_ra_um: [0.006, 0.025, 0.05]
+      dimensional_range_mm: [5, 200]
+    carbide:
+      surface_roughness_ra_um: [0.006, 0.025, 0.1]
+      dimensional_range_mm: [5, 300]
+
+# ---------------------------------------------------------------------------
+# Casting
+# ---------------------------------------------------------------------------
+
+die_casting:
+  typical_it_grade: "IT11"
+  iso_it_grades: ["IT10", "IT11", "IT12"]
+  min_feature_size_mm: 0.5
+  materials:
+    aluminium:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [1, 600]
+    zinc:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [1, 400]
+    magnesium:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [1, 500]
+
+investment_casting:
+  typical_it_grade: "IT10"
+  iso_it_grades: ["IT9", "IT10", "IT11"]
+  min_feature_size_mm: 0.5
+  materials:
+    steel:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [1, 300]
+    stainless_steel:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [1, 300]
+    titanium:
+      surface_roughness_ra_um: [3.2, 6.3]
+      dimensional_range_mm: [5, 200]
+    aluminium:
+      surface_roughness_ra_um: [1.6, 3.2]
+      dimensional_range_mm: [1, 300]
+
+gravity_die_casting:
+  typical_it_grade: "IT12"
+  iso_it_grades: ["IT11", "IT12", "IT13"]
+  min_feature_size_mm: 2.0
+  materials:
+    aluminium:
+      surface_roughness_ra_um: [3.2, 6.3, 12.5]
+      dimensional_range_mm: [5, 1000]
+    cast_iron:
+      surface_roughness_ra_um: [6.3, 12.5]
+      dimensional_range_mm: [10, 1000]
+    bronze:
+      surface_roughness_ra_um: [3.2, 6.3, 12.5]
+      dimensional_range_mm: [5, 800]
+
+# ---------------------------------------------------------------------------
+# Forming and forging
+# ---------------------------------------------------------------------------
+
+hot_forging:
+  typical_it_grade: "IT14"
+  iso_it_grades: ["IT13", "IT14", "IT15"]
+  min_feature_size_mm: 3.0
+  materials:
+    steel:
+      surface_roughness_ra_um: [3.2, 6.3, 12.5]
+      dimensional_range_mm: [10, 1000]
+    aluminium:
+      surface_roughness_ra_um: [3.2, 6.3]
+      dimensional_range_mm: [10, 500]
+    titanium:
+      surface_roughness_ra_um: [6.3, 12.5]
+      dimensional_range_mm: [10, 500]
+
+cold_forging:
+  typical_it_grade: "IT11"
+  iso_it_grades: ["IT10", "IT11", "IT12"]
+  min_feature_size_mm: 1.0
+  materials:
+    steel:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [5, 200]
+    aluminium:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [5, 200]
+    brass:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [5, 150]
+
+sheet_metal_stamping:
+  typical_it_grade: "IT12"
+  iso_it_grades: ["IT11", "IT12", "IT13"]
+  min_feature_size_mm: 0.5
+  materials:
+    steel:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [0.5, 2000]
+    aluminium:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [0.5, 2000]
+    stainless_steel:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [0.5, 1500]
+    brass:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [0.5, 1000]
+
+deep_drawing:
+  typical_it_grade: "IT13"
+  iso_it_grades: ["IT12", "IT13", "IT14"]
+  min_feature_size_mm: 1.0
+  materials:
+    steel:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [5, 500]
+    aluminium:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [5, 500]
+    stainless_steel:
+      surface_roughness_ra_um: [1.6, 3.2]
+      dimensional_range_mm: [5, 400]
+
+cold_rolling:
+  typical_it_grade: "IT9"
+  iso_it_grades: ["IT8", "IT9", "IT10"]
+  min_feature_size_mm: 1.0
+  materials:
+    steel:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [0.5, 3000]
+    aluminium:
+      surface_roughness_ra_um: [0.2, 0.4, 0.8]
+      dimensional_range_mm: [0.5, 3000]
+    copper:
+      surface_roughness_ra_um: [0.2, 0.4, 0.8]
+      dimensional_range_mm: [0.5, 2000]
+
+# ---------------------------------------------------------------------------
+# Powder and sintering
+# ---------------------------------------------------------------------------
+
+powder_metallurgy_sintering:
+  typical_it_grade: "IT10"
+  iso_it_grades: ["IT9", "IT10", "IT11"]
+  min_feature_size_mm: 1.0
+  materials:
+    iron:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [2, 300]
+    steel:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [2, 300]
+    bronze:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [2, 200]
+    tungsten_carbide:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [2, 100]
+
+# ---------------------------------------------------------------------------
+# Additive manufacturing
+# ---------------------------------------------------------------------------
+
+FDM_3d_printing:
+  typical_it_grade: "IT14"
+  iso_it_grades: ["IT13", "IT14", "IT15"]
+  min_feature_size_mm: 0.4
+  materials:
+    PLA:
+      surface_roughness_ra_um: [6.3, 12.5, 25.0]
+      dimensional_range_mm: [1, 500]
+    ABS:
+      surface_roughness_ra_um: [6.3, 12.5, 25.0]
+      dimensional_range_mm: [1, 500]
+    PETG:
+      surface_roughness_ra_um: [6.3, 12.5, 25.0]
+      dimensional_range_mm: [1, 500]
+    PA12:
+      surface_roughness_ra_um: [6.3, 12.5, 25.0]
+      dimensional_range_mm: [1, 500]
+
+SLA_stereolithography:
+  typical_it_grade: "IT12"
+  iso_it_grades: ["IT11", "IT12", "IT13"]
+  min_feature_size_mm: 0.1
+  materials:
+    photopolymer_resin:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [0.1, 300]
+
+SLS_selective_laser_sintering:
+  typical_it_grade: "IT12"
+  iso_it_grades: ["IT11", "IT12", "IT13"]
+  min_feature_size_mm: 0.3
+  materials:
+    PA12:
+      surface_roughness_ra_um: [3.2, 6.3, 12.5]
+      dimensional_range_mm: [0.5, 500]
+    PA11:
+      surface_roughness_ra_um: [3.2, 6.3, 12.5]
+      dimensional_range_mm: [0.5, 400]
+    TPU:
+      surface_roughness_ra_um: [6.3, 12.5]
+      dimensional_range_mm: [0.5, 300]
+
+SLM_selective_laser_melting:
+  typical_it_grade: "IT11"
+  iso_it_grades: ["IT10", "IT11", "IT12"]
+  min_feature_size_mm: 0.2
+  materials:
+    stainless_steel:
+      surface_roughness_ra_um: [3.2, 6.3, 12.5]
+      dimensional_range_mm: [0.5, 500]
+    titanium:
+      surface_roughness_ra_um: [3.2, 6.3, 12.5]
+      dimensional_range_mm: [0.5, 400]
+    aluminium:
+      surface_roughness_ra_um: [6.3, 12.5]
+      dimensional_range_mm: [0.5, 500]
+    inconel:
+      surface_roughness_ra_um: [3.2, 6.3, 12.5]
+      dimensional_range_mm: [0.5, 300]
+
+# ---------------------------------------------------------------------------
+# Non-conventional machining
+# ---------------------------------------------------------------------------
+
+EDM_wire:
+  typical_it_grade: "IT7"
+  iso_it_grades: ["IT6", "IT7", "IT8"]
+  min_feature_size_mm: 0.05
+  materials:
+    hardened_steel:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [0.1, 500]
+    tool_steel:
+      surface_roughness_ra_um: [0.4, 0.8, 1.6]
+      dimensional_range_mm: [0.1, 500]
+    carbide:
+      surface_roughness_ra_um: [0.4, 0.8]
+      dimensional_range_mm: [0.1, 300]
+    titanium:
+      surface_roughness_ra_um: [0.8, 1.6]
+      dimensional_range_mm: [0.1, 400]
+
+EDM_sinker:
+  typical_it_grade: "IT8"
+  iso_it_grades: ["IT7", "IT8", "IT9"]
+  min_feature_size_mm: 0.1
+  materials:
+    hardened_steel:
+      surface_roughness_ra_um: [0.4, 0.8, 3.2]
+      dimensional_range_mm: [0.5, 500]
+    tool_steel:
+      surface_roughness_ra_um: [0.4, 0.8, 3.2]
+      dimensional_range_mm: [0.5, 500]
+    carbide:
+      surface_roughness_ra_um: [0.4, 0.8]
+      dimensional_range_mm: [0.5, 200]
+
+waterjet_cutting:
+  typical_it_grade: "IT12"
+  iso_it_grades: ["IT11", "IT12", "IT13"]
+  min_feature_size_mm: 0.5
+  materials:
+    steel:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [1, 3000]
+    aluminium:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [1, 3000]
+    stone:
+      surface_roughness_ra_um: [3.2, 6.3, 12.5]
+      dimensional_range_mm: [5, 3000]
+    glass:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [5, 2000]
+    composites:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [1, 3000]
+
+laser_cutting:
+  typical_it_grade: "IT11"
+  iso_it_grades: ["IT10", "IT11", "IT12"]
+  min_feature_size_mm: 0.1
+  materials:
+    steel:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [0.5, 2000]
+    stainless_steel:
+      surface_roughness_ra_um: [1.6, 3.2]
+      dimensional_range_mm: [0.5, 1500]
+    aluminium:
+      surface_roughness_ra_um: [1.6, 3.2, 6.3]
+      dimensional_range_mm: [0.5, 2000]
+    plastics:
+      surface_roughness_ra_um: [0.8, 1.6, 3.2]
+      dimensional_range_mm: [0.5, 2000]
