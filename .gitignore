@@ -90,3 +90,5 @@ coverage.xml
 activate_env.sh
 
 data/CAD_generated
+
+.DS_Store
