@@ -351,11 +351,17 @@ def add_edges_to_dxf(
     transform: Callable[[float, float], tuple[float, float]],
     flip_y: bool,
     layer: str,
-    color: int = 0,
 ) -> int:
-    """Add extracted 2D edges to *msp* and return the count added."""
+    """Add extracted 2D edges to *msp* and return the count added.
+
+    Entities are created with **no explicit color** so they inherit the
+    layer colour (BYLAYER).  Setting ``color=0`` (BYBLOCK) on entities
+    placed directly in modelspace causes ezdxf's matplotlib renderer to
+    treat them as the background colour, making them invisible on a white
+    PDF.
+    """
     n = 0
-    attribs = {"layer": layer, "color": color}
+    attribs = {"layer": layer}  # BYLAYER colour — inherits from layer definition
 
     for e in edges:
         try:
@@ -639,14 +645,19 @@ def build_drawing() -> tuple[Path, Path]:
     msp = doc.modelspace()
 
     # Layers
+    # Color 7 = "white/black" — DXF viewers and ezdxf's matplotlib backend
+    # render it as BLACK when the background is white, so it is always
+    # visible on a white PDF without hard-coding an RGB black.
+    # Color 8 = medium-dark grey  (used for hidden/dashed lines — subtle but legible).
+    # Color 1 = red               (industry standard for centre lines).
     _layers = {
-        "BORDER":      (ezdxf.colors.WHITE,     "Continuous"),
-        "VISIBLE":     (ezdxf.colors.WHITE,     "Continuous"),
-        "HIDDEN":      (ezdxf.colors.CYAN,      "DASHED"),
-        "DIMENSIONS":  (ezdxf.colors.YELLOW,    "Continuous"),
-        "ANNOTATIONS": (ezdxf.colors.GREEN,     "Continuous"),
-        "TITLE_BLOCK": (ezdxf.colors.WHITE,     "Continuous"),
-        "CENTERLINES": (ezdxf.colors.RED,       "CENTER"),
+        "BORDER":      (7,                  "Continuous"),  # black on white
+        "VISIBLE":     (7,                  "Continuous"),  # black on white
+        "HIDDEN":      (8,                  "DASHED"),      # grey dashed
+        "DIMENSIONS":  (7,                  "Continuous"),  # black on white
+        "ANNOTATIONS": (7,                  "Continuous"),  # black on white
+        "TITLE_BLOCK": (7,                  "Continuous"),  # black on white
+        "CENTERLINES": (ezdxf.colors.RED,   "CENTER"),      # red centre marks
     }
     for name, (color, lt) in _layers.items():
         doc.layers.new(name, dxfattribs={"color": color, "linetype": lt})
@@ -899,8 +910,19 @@ def build_drawing() -> tuple[Path, Path]:
     ax.set_axis_off()
 
     ctx = RenderContext(doc)
-    out = MatplotlibBackend(ax)
-    Frontend(ctx, out).draw_layout(msp)
+    # Declare a white background so colour-7 entities (VISIBLE, DIMENSIONS,
+    # ANNOTATIONS, etc.) are rendered as black rather than white.
+    try:
+        from ezdxf.addons.drawing.properties import LayoutProperties
+        lp = LayoutProperties.from_layout(msp)
+        lp.set_colors("#FFFFFF")          # white paper
+        out = MatplotlibBackend(ax)
+        Frontend(ctx, out).draw_layout(msp, finalize=True,
+                                       layout_properties=lp)
+    except Exception:
+        # Fallback for older ezdxf versions that don't expose LayoutProperties
+        out = MatplotlibBackend(ax)
+        Frontend(ctx, out).draw_layout(msp)
 
     fig.savefig(str(PDF_OUT), dpi=150, bbox_inches="tight",
                 facecolor="white", edgecolor="none")
